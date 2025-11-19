@@ -30,6 +30,41 @@ export default function Home() {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
   }, []);
 
+  // Helper function to update task status recursively
+  const updateTaskInTree = useCallback((tasks: Task[], taskId: string, updates: Partial<Task>): Task[] => {
+    return tasks.map(task => {
+      if (task.id === taskId) {
+        return { ...task, ...updates };
+      }
+      if (task.subtasks.length > 0) {
+        return { ...task, subtasks: updateTaskInTree(task.subtasks, taskId, updates) };
+      }
+      return task;
+    });
+  }, []);
+
+  // Helper function to delete task from tree recursively
+  const deleteTaskFromTree = useCallback((tasks: Task[], taskId: string): Task[] => {
+    return tasks
+      .filter(task => task.id !== taskId)
+      .map(task => {
+        if (task.subtasks.length > 0) {
+          return { ...task, subtasks: deleteTaskFromTree(task.subtasks, taskId) };
+        }
+        return task;
+      });
+  }, []);
+
+  // Helper function to update current project's tasks
+  const updateCurrentProjectTasks = useCallback((updater: (tasks: Task[]) => Task[]) => {
+    setProjects(prev => prev.map(project => {
+      if (project.id === currentProjectId) {
+        return { ...project, tasks: updater(project.tasks) };
+      }
+      return project;
+    }));
+  }, [currentProjectId]);
+
   const loadProjects = async () => {
     try {
       const res = await fetch('/api/projects');
@@ -60,6 +95,14 @@ export default function Home() {
     if (!currentProjectId) return;
 
     const newStatus: TaskStatus = task.status === 'done' ? 'todo' : 'done';
+    const previousProjects = projects;
+
+    // Optimistic update - immediately update UI
+    updateCurrentProjectTasks(tasks => updateTaskInTree(tasks, task.id, { status: newStatus }));
+
+    if (newStatus === 'done') {
+      triggerConfetti();
+    }
 
     try {
       const res = await fetch('/api/projects', {
@@ -80,11 +123,11 @@ export default function Home() {
         throw new Error(errorData.error || 'Failed to toggle task');
       }
 
+      // Sync with server state
       await loadProjects();
-      if (newStatus === 'done') {
-        triggerConfetti();
-      }
     } catch (error) {
+      // Rollback on error
+      setProjects(previousProjects);
       console.error('Failed to toggle task:', error);
       showToast('error', error instanceof Error ? error.message : 'Failed to toggle task');
     }
@@ -92,6 +135,11 @@ export default function Home() {
 
   const handleTaskDelete = async (task: Task) => {
     if (!currentProjectId || !confirm('Are you sure you want to delete this task?')) return;
+
+    const previousProjects = projects;
+
+    // Optimistic update - immediately remove from UI
+    updateCurrentProjectTasks(tasks => deleteTaskFromTree(tasks, task.id));
 
     try {
       const res = await fetch('/api/projects', {
@@ -109,9 +157,12 @@ export default function Home() {
         throw new Error(errorData.error || 'Failed to delete task');
       }
 
+      // Sync with server state
       await loadProjects();
       showToast('success', 'Task deleted successfully');
     } catch (error) {
+      // Rollback on error
+      setProjects(previousProjects);
       console.error('Failed to delete task:', error);
       showToast('error', error instanceof Error ? error.message : 'Failed to delete task');
     }
@@ -156,8 +207,10 @@ export default function Home() {
   const handleTaskReorder = async (newTasks: Task[]) => {
     if (!currentProjectId) return;
 
-    // Optimistic update (optional, but good for UX)
-    // For now, we'll just call the API
+    const previousProjects = projects;
+
+    // Optimistic update - immediately update UI with new order
+    updateCurrentProjectTasks(() => newTasks);
 
     try {
       const res = await fetch('/api/projects', {
@@ -175,8 +228,11 @@ export default function Home() {
         throw new Error(errorData.error || 'Failed to reorder tasks');
       }
 
+      // Sync with server state
       await loadProjects();
     } catch (error) {
+      // Rollback on error
+      setProjects(previousProjects);
       console.error('Failed to reorder tasks:', error);
       showToast('error', error instanceof Error ? error.message : 'Failed to reorder tasks');
     }
