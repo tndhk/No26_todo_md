@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { Task, TaskStatus } from './types';
+import { Task, TaskStatus, Project } from './types';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 
@@ -165,5 +165,56 @@ export function deleteTask(filePath: string, lineNumber: number): void {
         lines.splice(index, 1);
     });
 
+    fs.writeFileSync(filePath, lines.join('\n'), 'utf-8');
+}
+
+export function rewriteMarkdown(filePath: string, project: Project): void {
+    const lines: string[] = [];
+
+    // Title
+    lines.push(`# ${project.title}`);
+    lines.push('');
+
+    // Helper to write tasks recursively
+    function writeTasks(tasks: Task[], indentLevel: number = 0) {
+        tasks.forEach(task => {
+            const indent = '    '.repeat(indentLevel);
+            const checkbox = task.status === 'done' ? '[x]' : '[ ]';
+            const dueTag = task.dueDate ? ` #due:${task.dueDate}` : '';
+            lines.push(`${indent}- ${checkbox} ${task.content}${dueTag}`);
+
+            if (task.subtasks.length > 0) {
+                writeTasks(task.subtasks, indentLevel + 1);
+            }
+        });
+    }
+
+    // Group tasks by status for sections
+    const todoTasks = project.tasks.filter(t => t.status === 'todo');
+    const doingTasks = project.tasks.filter(t => t.status === 'doing');
+    const doneTasks = project.tasks.filter(t => t.status === 'done');
+
+    // Todo Section
+    if (todoTasks.length > 0) {
+        lines.push('## Todo');
+        writeTasks(todoTasks);
+        lines.push('');
+    }
+
+    // Doing Section
+    if (doingTasks.length > 0) {
+        lines.push('## Doing');
+        writeTasks(doingTasks);
+        lines.push('');
+    }
+
+    // Done Section
+    if (doneTasks.length > 0) {
+        lines.push('## Done');
+        writeTasks(doneTasks);
+        lines.push('');
+    }
+
+    // Write to file
     fs.writeFileSync(filePath, lines.join('\n'), 'utf-8');
 }

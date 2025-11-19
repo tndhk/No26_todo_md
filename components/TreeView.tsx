@@ -1,8 +1,11 @@
 'use client';
 
 import { Task } from '@/lib/types';
-import { ChevronRight, ChevronDown, Circle, CheckCircle2, Trash2, Plus, Edit2 } from 'lucide-react';
+import { ChevronRight, ChevronDown, Circle, CheckCircle2, Trash2, Plus, Edit2, GripVertical } from 'lucide-react';
 import { useState } from 'react';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import styles from './TreeView.module.css';
 
 interface TreeViewProps {
@@ -11,6 +14,7 @@ interface TreeViewProps {
     onTaskDelete: (task: Task) => void;
     onTaskAdd: (parentTask?: Task) => void;
     onTaskUpdate: (task: Task, updates: Partial<Task>) => void;
+    onTaskReorder?: (tasks: Task[]) => void;
 }
 
 function TaskItem({
@@ -31,6 +35,21 @@ function TaskItem({
     const [editContent, setEditContent] = useState(task.content);
     const [editDueDate, setEditDueDate] = useState(task.dueDate || '');
     const hasSubtasks = task.subtasks.length > 0;
+
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging,
+    } = useSortable({ id: task.id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+    };
 
     const handleSave = () => {
         if (editContent.trim()) {
@@ -58,8 +77,11 @@ function TaskItem({
     };
 
     return (
-        <div className={styles.taskItem}>
+        <div ref={setNodeRef} style={style} className={styles.taskItem}>
             <div className={styles.taskRow}>
+                <div {...attributes} {...listeners} className={styles.dragHandle}>
+                    <GripVertical size={14} />
+                </div>
                 {hasSubtasks && (
                     <button
                         className={styles.expandButton}
@@ -170,8 +192,30 @@ export default function TreeView({
     onTaskToggle,
     onTaskDelete,
     onTaskAdd,
-    onTaskUpdate
+    onTaskUpdate,
+    onTaskReorder
 }: TreeViewProps) {
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+
+        if (active.id !== over?.id && onTaskReorder) {
+            const oldIndex = tasks.findIndex((t) => t.id === active.id);
+            const newIndex = tasks.findIndex((t) => t.id === over?.id);
+
+            if (oldIndex !== -1 && newIndex !== -1) {
+                const newTasks = arrayMove(tasks, oldIndex, newIndex);
+                onTaskReorder(newTasks);
+            }
+        }
+    };
+
     return (
         <div className={styles.treeView}>
             <div className={styles.addTaskContainer}>
@@ -181,16 +225,27 @@ export default function TreeView({
                 </button>
             </div>
 
-            {tasks.map((task) => (
-                <TaskItem
-                    key={task.id}
-                    task={task}
-                    onTaskToggle={onTaskToggle}
-                    onTaskDelete={onTaskDelete}
-                    onTaskAdd={onTaskAdd}
-                    onTaskUpdate={onTaskUpdate}
-                />
-            ))}
+            <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+            >
+                <SortableContext
+                    items={tasks.map(t => t.id)}
+                    strategy={verticalListSortingStrategy}
+                >
+                    {tasks.map((task) => (
+                        <TaskItem
+                            key={task.id}
+                            task={task}
+                            onTaskToggle={onTaskToggle}
+                            onTaskDelete={onTaskDelete}
+                            onTaskAdd={onTaskAdd}
+                            onTaskUpdate={onTaskUpdate}
+                        />
+                    ))}
+                </SortableContext>
+            </DndContext>
         </div>
     );
 }

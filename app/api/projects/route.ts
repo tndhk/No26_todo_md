@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllProjects } from '@/lib/markdown';
-import { updateMarkdown, addTask, deleteTask, updateTask } from '@/lib/markdown-updater';
+import { updateMarkdown, addTask, deleteTask, updateTask, rewriteMarkdown } from '@/lib/markdown-updater';
 import { Task, TaskStatus } from '@/lib/types';
 
 export async function GET() {
@@ -16,7 +16,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { action, projectId, task, content, status, dueDate, parentLineNumber, updates } = body;
+        const { action, projectId, task, content, status, dueDate, parentLineNumber, updates, tasks } = body;
 
         // Find project path
         const projects = await getAllProjects();
@@ -47,6 +47,15 @@ export async function POST(request: NextRequest) {
                     return NextResponse.json({ error: 'Line number required' }, { status: 400 });
                 }
                 deleteTask(project.path, task.lineNumber);
+                break;
+
+            case 'reorder':
+                if (!tasks) {
+                    return NextResponse.json({ error: 'Tasks required for reordering' }, { status: 400 });
+                }
+                // Create a temporary project object with new tasks
+                const updatedProject = { ...project, tasks };
+                rewriteMarkdown(project.path, updatedProject);
                 break;
 
             default:

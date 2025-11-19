@@ -6,6 +6,7 @@ import Sidebar from '@/components/Sidebar';
 import TreeView from '@/components/TreeView';
 import WeeklyView from '@/components/WeeklyView';
 import AddTaskModal from '@/components/AddTaskModal';
+import { triggerConfetti } from '@/lib/confetti';
 import styles from './page.module.css';
 
 type ViewType = 'tree' | 'weekly';
@@ -60,6 +61,9 @@ export default function Home() {
 
       if (res.ok) {
         await loadProjects();
+        if (newStatus === 'done') {
+          triggerConfetti();
+        }
       }
     } catch (error) {
       console.error('Failed to toggle task:', error);
@@ -117,6 +121,31 @@ export default function Home() {
       }
     } catch (error) {
       console.error('Failed to update task:', error);
+    }
+  };
+
+  const handleTaskReorder = async (newTasks: Task[]) => {
+    if (!currentProjectId) return;
+
+    // Optimistic update (optional, but good for UX)
+    // For now, we'll just call the API
+
+    try {
+      const res = await fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'reorder',
+          projectId: currentProjectId,
+          tasks: newTasks
+        }),
+      });
+
+      if (res.ok) {
+        await loadProjects();
+      }
+    } catch (error) {
+      console.error('Failed to reorder tasks:', error);
     }
   };
 
@@ -178,6 +207,7 @@ export default function Home() {
               onTaskDelete={handleTaskDelete}
               onTaskAdd={handleTaskAdd}
               onTaskUpdate={handleTaskUpdate}
+              onTaskReorder={handleTaskReorder}
             />
           )}
           {currentView === 'weekly' && currentProject && (

@@ -1,26 +1,67 @@
 .treeView {
-    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.addTaskContainer {
+    margin-bottom: 1rem;
+}
+
+.addTaskButton {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.75rem;
+    background: var(--surface);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-md);
+    color: var(--foreground);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.addTaskButton:hover {
+    background: var(--surface-hover);
+    border-color: var(--primary);
 }
 
 .taskItem {
-    margin-bottom: 0.5rem;
+    display: flex;
+    flex-direction: column;
 }
 
 .taskRow {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem 1rem;
-    background: var(--surface);
-    border: 1px solid var(--border);
+    padding: 0.5rem;
     border-radius: var(--radius-md);
-    transition: all 0.2s ease;
+    background: var(--surface);
+    border: 1px solid transparent;
+    transition: all 0.2s;
+    gap: 0.5rem;
 }
 
 .taskRow:hover {
     background: var(--surface-hover);
-    border-color: var(--primary);
-    transform: translateX(4px);
+    border-color: var(--border);
+}
+
+.dragHandle {
+    cursor: grab;
+    color: var(--foreground);
+    opacity: 0.3;
+    display: flex;
+    align-items: center;
+}
+
+.dragHandle:hover {
+    opacity: 1;
+}
+
+.dragHandle:active {
+    cursor: grabbing;
 }
 
 .expandButton {
@@ -28,11 +69,10 @@
     border: none;
     color: var(--foreground);
     cursor: pointer;
-    padding: 0;
     display: flex;
     align-items: center;
-    opacity: 0.6;
-    transition: opacity 0.2s;
+    padding: 0.25rem;
+    opacity: 0.7;
 }
 
 .expandButton:hover {
@@ -40,7 +80,7 @@
 }
 
 .expandSpacer {
-    width: 16px;
+    width: 24px;
 }
 
 .checkbox {
@@ -48,75 +88,43 @@
     border: none;
     color: var(--foreground);
     cursor: pointer;
-    padding: 0;
     display: flex;
     align-items: center;
-    opacity: 0.6;
-    transition: all 0.2s;
+    opacity: 0.7;
 }
 
 .checkbox:hover {
     opacity: 1;
-    transform: scale(1.1);
+    color: var(--primary);
 }
 
-.checkbox .checked {
+.checked {
     color: var(--success);
-    opacity: 1;
 }
 
 .taskContent {
     flex: 1;
     font-size: 0.95rem;
-    transition: all 0.2s;
+    cursor: text;
 }
 
-.taskContent.completed {
+.completed {
     text-decoration: line-through;
-    opacity: 0.5;
+    opacity: 0.6;
 }
 
 .dueDate {
     font-size: 0.8rem;
-    color: var(--warning);
-    background: rgba(245, 158, 11, 0.1);
-    padding: 0.25rem 0.5rem;
+    color: var(--secondary);
+    background: rgba(139, 92, 246, 0.1);
+    padding: 0.1rem 0.4rem;
     border-radius: var(--radius-sm);
-}
-
-.statusBadge {
-    font-size: 0.75rem;
-    padding: 0.25rem 0.75rem;
-    border-radius: var(--radius-sm);
-    font-weight: 600;
-    text-transform: uppercase;
-}
-
-.statusBadge.todo {
-    background: rgba(148, 163, 184, 0.2);
-    color: var(--foreground);
-}
-
-.statusBadge.doing {
-    background: rgba(59, 130, 246, 0.2);
-    color: var(--primary);
-}
-
-.statusBadge.done {
-    background: rgba(16, 185, 129, 0.2);
-    color: var(--success);
-}
-
-.subtasks {
-    margin-left: 2.5rem;
-    margin-top: 0.5rem;
-    padding-left: 1rem;
-    border-left: 2px solid var(--border);
+    margin-right: 0.5rem;
 }
 
 .actions {
     display: flex;
-    gap: 0.5rem;
+    gap: 0.25rem;
     opacity: 0;
     transition: opacity 0.2s;
 }
@@ -131,45 +139,23 @@
     color: var(--foreground);
     cursor: pointer;
     padding: 0.25rem;
-    display: flex;
-    align-items: center;
-    opacity: 0.6;
-    transition: all 0.2s;
-    border-radius: var(--radius-sm);
+    opacity: 0.5;
+    transition: opacity 0.2s;
 }
 
 .actionButton:hover {
     opacity: 1;
-    background: var(--surface-hover);
+    color: var(--primary);
 }
 
-.actionButton:last-child:hover {
-    color: var(--danger);
-}
-
-.addTaskContainer {
-    margin-bottom: 1rem;
-}
-
-.addTaskButton {
+.subtasks {
+    margin-left: 1.5rem;
+    margin-top: 0.25rem;
+    border-left: 1px solid var(--border);
+    padding-left: 0.5rem;
     display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1.5rem;
-    background: var(--primary);
-    color: white;
-    border: none;
-    border-radius: var(--radius-md);
-    font-size: 0.95rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.addTaskButton:hover {
-    background: var(--secondary);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px var(--primary-glow);
+    flex-direction: column;
+    gap: 0.25rem;
 }
 
 .editContainer {
@@ -181,67 +167,21 @@
 
 .editInput {
     flex: 1;
-    padding: 0.5rem;
-    background: var(--glass-bg);
-    border: 2px solid var(--primary);
-    border-radius: var(--radius-sm);
+    background: var(--background);
+    border: 1px solid var(--primary);
     color: var(--foreground);
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-family: inherit;
     font-size: 0.95rem;
-    outline: none;
 }
 
 .editDateInput {
-    padding: 0.5rem;
-    background: var(--glass-bg);
+    background: var(--background);
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
     color: var(--foreground);
-    font-size: 0.85rem;
-    outline: none;
-}
-
-.editDateInput:focus {
-    border-color: var(--primary);
-}
-
-.editActions {
-    display: flex;
-    gap: 0.5rem;
-}
-
-.saveButton,
-.cancelButton {
-    padding: 0.5rem 1rem;
-    border: none;
+    padding: 0.25rem;
     border-radius: var(--radius-sm);
-    font-size: 0.85rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.saveButton {
-    background: var(--primary);
-    color: white;
-}
-
-.saveButton:hover {
-    background: var(--secondary);
-}
-
-.cancelButton {
-    background: var(--surface-hover);
-    color: var(--foreground);
-}
-
-.cancelButton:hover {
-    background: var(--border);
-}
-
-.taskContent {
-    cursor: text;
-}
-
-.taskContent:hover {
-    opacity: 0.8;
+    font-family: inherit;
+    font-size: 0.8rem;
 }
