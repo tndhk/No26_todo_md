@@ -1,6 +1,7 @@
 import fs from 'fs';
 import { updateTask, addTask, deleteTask, updateMarkdown, rewriteMarkdown } from '@/lib/markdown-updater';
 import { Task, Project } from '@/lib/types';
+import { resetConfig } from '@/lib/config';
 
 // Mock fs module
 jest.mock('fs');
@@ -10,6 +11,14 @@ const mockFs = fs as jest.Mocked<typeof fs>;
 describe('markdown-updater', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    resetConfig();
+
+    // Mock fs functions needed by config module
+    mockFs.existsSync.mockReturnValue(true);
+    mockFs.statSync.mockReturnValue({
+      isDirectory: () => true,
+    } as fs.Stats);
+    mockFs.accessSync.mockImplementation(() => {});
   });
 
   describe('updateTask', () => {
