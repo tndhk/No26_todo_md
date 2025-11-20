@@ -12,6 +12,12 @@ import {
 } from '@/lib/monitoring';
 import * as loggerModule from '@/lib/logger';
 
+type MockLogger = {
+  info: jest.Mock;
+  warn: jest.Mock;
+  error: jest.Mock;
+};
+
 // Mock Sentry
 jest.mock('@sentry/nextjs');
 
@@ -128,11 +134,11 @@ describe('lib/monitoring', () => {
     });
 
     it('should accept custom logger', async () => {
-      const customLogger = {
+      const customLogger: MockLogger = {
         info: jest.fn(),
         warn: jest.fn(),
         error: jest.fn(),
-      } as any;
+      };
 
       const operation = jest.fn().mockResolvedValue('result');
       const context = { operation: 'test_op' };
@@ -337,11 +343,11 @@ describe('lib/monitoring', () => {
     });
 
     it('should use custom logger if provided', async () => {
-      const customLogger = {
+      const customLogger: MockLogger = {
         info: jest.fn(),
         warn: jest.fn(),
         error: jest.fn(),
-      } as any;
+      };
 
       const operation = jest.fn().mockResolvedValue('result');
 

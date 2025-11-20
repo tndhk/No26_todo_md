@@ -23,14 +23,6 @@ const ThrowError = ({ shouldThrow }: { shouldThrow: boolean }) => {
   return <div>No error</div>;
 };
 
-// Component that can be controlled to throw
-const ConditionalError = ({ error }: { error?: Error }) => {
-  if (error) {
-    throw error;
-  }
-  return <div>Working component</div>;
-};
-
 describe('ErrorBoundary', () => {
   // Suppress console.error for cleaner test output
   const originalError = console.error;

@@ -10,6 +10,10 @@ import * as security from '@/lib/security';
 import * as monitoring from '@/lib/monitoring';
 import * as Sentry from '@sentry/nextjs';
 
+type MockSession = {
+  user?: { id?: string; email?: string };
+};
+
 // Mock all dependencies
 jest.mock('@/lib/markdown');
 jest.mock('@/lib/markdown-updater');
@@ -55,7 +59,7 @@ describe('API /api/v1/projects', () => {
   const mockTransaction = {
     end: jest.fn(),
     startTime: Date.now(),
-    context: {} as any,
+    context: {} as Record<string, unknown>,
   };
 
   beforeEach(() => {
@@ -68,7 +72,7 @@ describe('API /api/v1/projects', () => {
     // Mock auth
     mockAuth.auth.mockResolvedValue({
       user: { id: 'user123', email: 'test@example.com' },
-    } as any);
+    } as MockSession);
     mockAuth.getUserDataDir.mockReturnValue('/data/user123');
 
     // Mock security validations - default to valid
@@ -108,7 +112,7 @@ describe('API /api/v1/projects', () => {
     it('should return 401 when user ID is missing', async () => {
       mockAuth.auth.mockResolvedValue({
         user: { email: 'test@example.com' },
-      } as any);
+      } as MockSession);
 
       const response = await GET();
       const data = await response.json();
@@ -174,7 +178,7 @@ describe('API /api/v1/projects', () => {
     it('should use user-specific data directory', async () => {
       mockAuth.auth.mockResolvedValue({
         user: { id: 'different-user', email: 'other@example.com' },
-      } as any);
+      } as MockSession);
       mockAuth.getUserDataDir.mockReturnValue('/data/different-user');
 
       await GET();
@@ -194,7 +198,7 @@ describe('API /api/v1/projects', () => {
   });
 
   describe('POST /api/v1/projects/[projectId]/tasks', () => {
-    const createRequest = (body: any) =>
+    const createRequest = (body: unknown) =>
       new NextRequest('http://localhost/api/v1/projects/test/tasks', {
         method: 'POST',
         body: JSON.stringify(body),

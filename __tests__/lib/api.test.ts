@@ -11,6 +11,7 @@ import {
 } from '@/lib/api';
 import { validateProjectsResponse, ApiValidationError } from '@/lib/schemas';
 import { Task } from '@/lib/types';
+import { z } from 'zod';
 
 // Mock the schemas module
 jest.mock('@/lib/schemas');
@@ -506,9 +507,16 @@ describe('lib/api', () => {
 
   describe('getErrorMessage', () => {
     it('should return user-friendly message for ApiValidationError', () => {
-      const validationError = new ApiValidationError({
-        issues: [{ path: ['test'], message: 'Invalid' }],
-      } as any);
+      const zodError = new z.ZodError([
+        {
+          code: z.ZodIssueCode.invalid_type,
+          expected: 'string',
+          received: 'number',
+          path: ['test'],
+          message: 'Invalid',
+        },
+      ]);
+      const validationError = new ApiValidationError(zodError);
 
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
 

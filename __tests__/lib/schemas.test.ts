@@ -8,6 +8,7 @@ import {
   validateProjectsResponse,
   parseErrorResponse,
 } from '@/lib/schemas';
+import { z } from 'zod';
 
 describe('lib/schemas', () => {
   describe('TaskStatusSchema', () => {
@@ -139,19 +140,19 @@ describe('lib/schemas', () => {
     });
 
     it('should reject task without id', () => {
-      const { id, ...taskWithoutId } = validTask;
+      const { id: _id, ...taskWithoutId } = validTask;
       const result = TaskSchema.safeParse(taskWithoutId);
       expect(result.success).toBe(false);
     });
 
     it('should reject task without content', () => {
-      const { content, ...taskWithoutContent } = validTask;
+      const { content: _content, ...taskWithoutContent } = validTask;
       const result = TaskSchema.safeParse(taskWithoutContent);
       expect(result.success).toBe(false);
     });
 
     it('should reject task without status', () => {
-      const { status, ...taskWithoutStatus } = validTask;
+      const { status: _status, ...taskWithoutStatus } = validTask;
       const result = TaskSchema.safeParse(taskWithoutStatus);
       expect(result.success).toBe(false);
     });
@@ -166,13 +167,13 @@ describe('lib/schemas', () => {
     });
 
     it('should reject task without rawLine', () => {
-      const { rawLine, ...taskWithoutRawLine } = validTask;
+      const { rawLine: _rawLine, ...taskWithoutRawLine } = validTask;
       const result = TaskSchema.safeParse(taskWithoutRawLine);
       expect(result.success).toBe(false);
     });
 
     it('should reject task without lineNumber', () => {
-      const { lineNumber, ...taskWithoutLineNumber } = validTask;
+      const { lineNumber: _lineNumber, ...taskWithoutLineNumber } = validTask;
       const result = TaskSchema.safeParse(taskWithoutLineNumber);
       expect(result.success).toBe(false);
     });
@@ -272,25 +273,25 @@ describe('lib/schemas', () => {
     });
 
     it('should reject project without id', () => {
-      const { id, ...projectWithoutId } = validProject;
+      const { id: _id, ...projectWithoutId } = validProject;
       const result = ProjectSchema.safeParse(projectWithoutId);
       expect(result.success).toBe(false);
     });
 
     it('should reject project without title', () => {
-      const { title, ...projectWithoutTitle } = validProject;
+      const { title: _title, ...projectWithoutTitle } = validProject;
       const result = ProjectSchema.safeParse(projectWithoutTitle);
       expect(result.success).toBe(false);
     });
 
     it('should reject project without path', () => {
-      const { path, ...projectWithoutPath } = validProject;
+      const { path: _path, ...projectWithoutPath } = validProject;
       const result = ProjectSchema.safeParse(projectWithoutPath);
       expect(result.success).toBe(false);
     });
 
     it('should reject project without tasks', () => {
-      const { tasks, ...projectWithoutTasks } = validProject;
+      const { tasks: _tasks, ...projectWithoutTasks } = validProject;
       const result = ProjectSchema.safeParse(projectWithoutTasks);
       expect(result.success).toBe(false);
     });
@@ -383,12 +384,22 @@ describe('lib/schemas', () => {
 
   describe('ApiValidationError', () => {
     it('should create error with formatted message', () => {
-      const zodError = {
-        issues: [
-          { path: ['tasks', 0, 'content'], message: 'Required' },
-          { path: ['title'], message: 'Invalid type' },
-        ],
-      } as any;
+      const zodError = new z.ZodError([
+        {
+          code: z.ZodIssueCode.invalid_type,
+          expected: 'string',
+          received: 'undefined',
+          path: ['tasks', 0, 'content'],
+          message: 'Required',
+        },
+        {
+          code: z.ZodIssueCode.invalid_type,
+          expected: 'string',
+          received: 'number',
+          path: ['title'],
+          message: 'Invalid type',
+        },
+      ]);
 
       const error = new ApiValidationError(zodError);
 
@@ -401,9 +412,13 @@ describe('lib/schemas', () => {
     });
 
     it('should handle empty path in issues', () => {
-      const zodError = {
-        issues: [{ path: [], message: 'Invalid data' }],
-      } as any;
+      const zodError = new z.ZodError([
+        {
+          code: z.ZodIssueCode.custom,
+          path: [],
+          message: 'Invalid data',
+        },
+      ]);
 
       const error = new ApiValidationError(zodError);
 
@@ -411,13 +426,23 @@ describe('lib/schemas', () => {
     });
 
     it('should store all issues', () => {
-      const zodError = {
-        issues: [
-          { path: ['field1'], message: 'Error 1' },
-          { path: ['field2'], message: 'Error 2' },
-          { path: ['field3'], message: 'Error 3' },
-        ],
-      } as any;
+      const zodError = new z.ZodError([
+        {
+          code: z.ZodIssueCode.custom,
+          path: ['field1'],
+          message: 'Error 1',
+        },
+        {
+          code: z.ZodIssueCode.custom,
+          path: ['field2'],
+          message: 'Error 2',
+        },
+        {
+          code: z.ZodIssueCode.custom,
+          path: ['field3'],
+          message: 'Error 3',
+        },
+      ]);
 
       const error = new ApiValidationError(zodError);
 

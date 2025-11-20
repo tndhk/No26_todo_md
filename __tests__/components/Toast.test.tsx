@@ -1,6 +1,5 @@
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import Toast, { ToastMessage } from '@/components/Toast';
 
 // Mock lucide-react icons
@@ -403,7 +402,7 @@ describe('Toast', () => {
     it('should handle many toasts', () => {
       const manyToasts: ToastMessage[] = Array.from({ length: 20 }, (_, i) => ({
         id: `${i}`,
-        type: (i % 3 === 0 ? 'success' : i % 3 === 1 ? 'error' : 'info') as any,
+        type: (i % 3 === 0 ? 'success' : i % 3 === 1 ? 'error' : 'info') as 'success' | 'error' | 'info',
         message: `Message ${i}`,
       }));
 
