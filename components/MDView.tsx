@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { fetchRawMarkdown, saveRawMarkdown, getErrorMessage } from '@/lib/api';
 import styles from './MDView.module.css';
 
@@ -9,6 +9,34 @@ interface MDViewProps {
     onSaveSuccess: () => void;
     onError: (message: string) => void;
 }
+
+interface EditorState {
+    content: string;
+    saving: boolean;
+    hasUnsavedChanges: boolean;
+}
+
+const Editor = memo(({ state, onContentChange, onKeyDown, textareaRef }: {
+    state: EditorState;
+    onContentChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+    onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+    textareaRef: React.RefObject<HTMLTextAreaElement>;
+}) => (
+    <textarea
+        ref={textareaRef}
+        className={styles.editor}
+        value={state.content}
+        onChange={onContentChange}
+        onKeyDown={onKeyDown}
+        spellCheck={false}
+        placeholder="Start writing your Markdown..."
+    />
+), (prevProps, nextProps) => {
+    // Custom comparison: only rerender if content changes
+    return prevProps.state.content === nextProps.state.content &&
+           prevProps.onContentChange === nextProps.onContentChange &&
+           prevProps.onKeyDown === nextProps.onKeyDown;
+});
 
 export default function MDView({ projectId, onSaveSuccess, onError }: MDViewProps) {
     const [content, setContent] = useState('');
@@ -84,10 +112,10 @@ export default function MDView({ projectId, onSaveSuccess, onError }: MDViewProp
             clearTimeout(debounceRef.current);
         }
 
-        // Set new debounce for autosave (400ms)
+        // Set new debounce for autosave (5000ms)
         debounceRef.current = setTimeout(() => {
             saveContent(newContent);
-        }, 400);
+        }, 5000);
     }, [originalContent, saveContent]);
 
     // Handle keyboard shortcuts
@@ -101,6 +129,12 @@ export default function MDView({ projectId, onSaveSuccess, onError }: MDViewProp
             saveContent(content);
         }
     }, [content, saveContent]);
+
+    const editorState: EditorState = useMemo(() => ({
+        content,
+        saving,
+        hasUnsavedChanges,
+    }), [content]);
 
     if (loading) {
         return (
@@ -130,14 +164,11 @@ export default function MDView({ projectId, onSaveSuccess, onError }: MDViewProp
                     <kbd>Ctrl</kbd> + <kbd>S</kbd> to save immediately
                 </div>
             </div>
-            <textarea
-                ref={textareaRef}
-                className={styles.editor}
-                value={content}
-                onChange={handleContentChange}
+            <Editor
+                state={editorState}
+                onContentChange={handleContentChange}
                 onKeyDown={handleKeyDown}
-                spellCheck={false}
-                placeholder="Start writing your Markdown..."
+                textareaRef={textareaRef}
             />
         </div>
     );
