@@ -1,7 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-
-const DATA_DIR = path.join(process.cwd(), 'data');
+import { getConfig } from './config';
 
 // File locks to prevent race conditions
 const fileLocks = new Map<string, Promise<void>>();
@@ -11,9 +10,10 @@ const fileLocks = new Map<string, Promise<void>>();
  * Prevents path traversal attacks
  */
 export function validateFilePath(filePath: string): boolean {
+    const config = getConfig();
     const normalizedPath = path.normalize(filePath);
     const resolvedPath = path.resolve(filePath);
-    const resolvedDataDir = path.resolve(DATA_DIR);
+    const resolvedDataDir = path.resolve(config.dataDir);
 
     // Check if the path is within the data directory
     if (!resolvedPath.startsWith(resolvedDataDir + path.sep) && resolvedPath !== resolvedDataDir) {
@@ -32,6 +32,8 @@ export function validateFilePath(filePath: string): boolean {
  * Validates project ID to prevent malicious input
  */
 export function validateProjectId(projectId: string): { valid: boolean; error?: string } {
+    const config = getConfig();
+
     if (!projectId || typeof projectId !== 'string') {
         return { valid: false, error: 'Project ID is required' };
     }
@@ -43,7 +45,7 @@ export function validateProjectId(projectId: string): { valid: boolean; error?: 
     }
 
     // Prevent overly long IDs
-    if (projectId.length > 100) {
+    if (projectId.length > config.maxProjectIdLength) {
         return { valid: false, error: 'Project ID is too long' };
     }
 
@@ -54,6 +56,8 @@ export function validateProjectId(projectId: string): { valid: boolean; error?: 
  * Validates task content to prevent XSS and injection
  */
 export function validateTaskContent(content: string): { valid: boolean; error?: string } {
+    const config = getConfig();
+
     if (!content || typeof content !== 'string') {
         return { valid: false, error: 'Task content is required' };
     }
@@ -64,8 +68,8 @@ export function validateTaskContent(content: string): { valid: boolean; error?: 
         return { valid: false, error: 'Task content cannot be empty' };
     }
 
-    if (trimmed.length > 500) {
-        return { valid: false, error: 'Task content is too long (max 500 characters)' };
+    if (trimmed.length > config.maxContentLength) {
+        return { valid: false, error: `Task content is too long (max ${config.maxContentLength} characters)` };
     }
 
     // Prevent multiple #due: tags (could cause parsing issues)
@@ -81,14 +85,14 @@ export function validateTaskContent(content: string): { valid: boolean; error?: 
  * Validates task status
  */
 export function validateTaskStatus(status: string): { valid: boolean; error?: string } {
-    const validStatuses = ['todo', 'doing', 'done'];
+    const config = getConfig();
 
     if (!status || typeof status !== 'string') {
         return { valid: false, error: 'Status is required' };
     }
 
-    if (!validStatuses.includes(status)) {
-        return { valid: false, error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` };
+    if (!config.validStatuses.includes(status)) {
+        return { valid: false, error: `Invalid status. Must be one of: ${config.validStatuses.join(', ')}` };
     }
 
     return { valid: true };
@@ -98,6 +102,8 @@ export function validateTaskStatus(status: string): { valid: boolean; error?: st
  * Validates due date format
  */
 export function validateDueDate(dueDate?: string): { valid: boolean; error?: string } {
+    const config = getConfig();
+
     if (!dueDate) {
         return { valid: true }; // Due date is optional
     }
@@ -107,8 +113,7 @@ export function validateDueDate(dueDate?: string): { valid: boolean; error?: str
     }
 
     // Check format YYYY-MM-DD
-    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-    if (!datePattern.test(dueDate)) {
+    if (!config.dueDatePattern.test(dueDate)) {
         return { valid: false, error: 'Due date must be in YYYY-MM-DD format' };
     }
 

@@ -1,11 +1,10 @@
 import fs from 'fs';
-import path from 'path';
 import { Task, TaskStatus, Project } from './types';
-
-const DATA_DIR = path.join(process.cwd(), 'data');
+import { getConfig } from './config';
 
 export function updateMarkdown(filePath: string, tasks: Task[]): void {
-    const content = fs.readFileSync(filePath, 'utf-8');
+    const config = getConfig();
+    const content = fs.readFileSync(filePath, config.fileEncoding);
     const lines = content.split('\n');
 
     // Create a map of line numbers to updated tasks
@@ -35,7 +34,7 @@ export function updateMarkdown(filePath: string, tasks: Task[]): void {
         return line;
     });
 
-    fs.writeFileSync(filePath, updatedLines.join('\n'), 'utf-8');
+    fs.writeFileSync(filePath, updatedLines.join('\n'), config.fileEncoding);
 }
 
 export function updateTask(
@@ -43,7 +42,8 @@ export function updateTask(
     lineNumber: number,
     updates: { content?: string; status?: TaskStatus; dueDate?: string }
 ): void {
-    const content = fs.readFileSync(filePath, 'utf-8');
+    const config = getConfig();
+    const content = fs.readFileSync(filePath, config.fileEncoding);
     const lines = content.split('\n');
 
     if (lineNumber < 1 || lineNumber > lines.length) {
@@ -70,7 +70,7 @@ export function updateTask(
 
     lines[lineNumber - 1] = `${indent}- ${newCheckbox} ${newContent}${newDueTag}`;
 
-    fs.writeFileSync(filePath, lines.join('\n'), 'utf-8');
+    fs.writeFileSync(filePath, lines.join('\n'), config.fileEncoding);
 }
 
 export function addTask(
@@ -80,18 +80,20 @@ export function addTask(
     dueDate?: string,
     parentLineNumber?: number
 ): void {
-    const fileContent = fs.readFileSync(filePath, 'utf-8');
+    const config = getConfig();
+    const fileContent = fs.readFileSync(filePath, config.fileEncoding);
     const lines = fileContent.split('\n');
 
     const checkbox = status === 'done' ? '[x]' : '[ ]';
     const dueTag = dueDate ? ` #due:${dueDate}` : '';
     const newTaskLine = `- ${checkbox} ${content}${dueTag}`;
+    const indentUnit = ' '.repeat(config.indentSpaces);
 
     if (parentLineNumber) {
         // Add as subtask
         const parentLine = lines[parentLineNumber - 1];
         const parentIndent = parentLine.match(/^(\s*)/)?.[1] || '';
-        const childIndent = parentIndent + '    ';
+        const childIndent = parentIndent + indentUnit;
 
         // Find the last child of the parent
         let insertIndex = parentLineNumber;
@@ -138,11 +140,12 @@ export function addTask(
         }
     }
 
-    fs.writeFileSync(filePath, lines.join('\n'), 'utf-8');
+    fs.writeFileSync(filePath, lines.join('\n'), config.fileEncoding);
 }
 
 export function deleteTask(filePath: string, lineNumber: number): void {
-    const content = fs.readFileSync(filePath, 'utf-8');
+    const config = getConfig();
+    const content = fs.readFileSync(filePath, config.fileEncoding);
     const lines = content.split('\n');
 
     const targetLine = lines[lineNumber - 1];
@@ -165,10 +168,11 @@ export function deleteTask(filePath: string, lineNumber: number): void {
         lines.splice(index, 1);
     });
 
-    fs.writeFileSync(filePath, lines.join('\n'), 'utf-8');
+    fs.writeFileSync(filePath, lines.join('\n'), config.fileEncoding);
 }
 
 export function rewriteMarkdown(filePath: string, project: Project): void {
+    const config = getConfig();
     const lines: string[] = [];
 
     // Title
@@ -176,9 +180,10 @@ export function rewriteMarkdown(filePath: string, project: Project): void {
     lines.push('');
 
     // Helper to write tasks recursively
+    const indentUnit = ' '.repeat(config.indentSpaces);
     function writeTasks(tasks: Task[], indentLevel: number = 0) {
         tasks.forEach(task => {
-            const indent = '    '.repeat(indentLevel);
+            const indent = indentUnit.repeat(indentLevel);
             const checkbox = task.status === 'done' ? '[x]' : '[ ]';
             const dueTag = task.dueDate ? ` #due:${task.dueDate}` : '';
             lines.push(`${indent}- ${checkbox} ${task.content}${dueTag}`);
@@ -216,5 +221,5 @@ export function rewriteMarkdown(filePath: string, project: Project): void {
     }
 
     // Write to file
-    fs.writeFileSync(filePath, lines.join('\n'), 'utf-8');
+    fs.writeFileSync(filePath, lines.join('\n'), config.fileEncoding);
 }

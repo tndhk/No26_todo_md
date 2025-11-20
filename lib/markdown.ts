@@ -1,17 +1,18 @@
 import fs from 'fs';
 import path from 'path';
 import { Project, Task, TaskStatus } from './types';
-
-const DATA_DIR = path.join(process.cwd(), 'data');
+import { getConfig } from './config';
 
 export async function getAllProjects(): Promise<Project[]> {
-    if (!fs.existsSync(DATA_DIR)) {
+    const config = getConfig();
+
+    if (!fs.existsSync(config.dataDir)) {
         return [];
     }
-    const files = fs.readdirSync(DATA_DIR).filter((file) => file.endsWith('.md'));
+    const files = fs.readdirSync(config.dataDir).filter((file) => file.endsWith('.md'));
     return files.map((file) => {
-        const content = fs.readFileSync(path.join(DATA_DIR, file), 'utf-8');
-        return parseMarkdown(file.replace('.md', ''), content, path.join(DATA_DIR, file));
+        const content = fs.readFileSync(path.join(config.dataDir, file), config.fileEncoding);
+        return parseMarkdown(file.replace('.md', ''), content, path.join(config.dataDir, file));
     });
 }
 
