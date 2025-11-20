@@ -20,7 +20,7 @@ const Editor = memo(({ state, onContentChange, onKeyDown, textareaRef }: {
     state: EditorState;
     onContentChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
     onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
-    textareaRef: React.RefObject<HTMLTextAreaElement>;
+    textareaRef: React.RefObject<HTMLTextAreaElement | null>;
 }) => (
     <textarea
         ref={textareaRef}
@@ -37,6 +37,7 @@ const Editor = memo(({ state, onContentChange, onKeyDown, textareaRef }: {
            prevProps.onContentChange === nextProps.onContentChange &&
            prevProps.onKeyDown === nextProps.onKeyDown;
 });
+Editor.displayName = 'Editor';
 
 export default function MDView({ projectId, onSaveSuccess, onError }: MDViewProps) {
     const [content, setContent] = useState('');
@@ -134,7 +135,7 @@ export default function MDView({ projectId, onSaveSuccess, onError }: MDViewProp
         content,
         saving,
         hasUnsavedChanges,
-    }), [content]);
+    }), [content, saving, hasUnsavedChanges]);
 
     if (loading) {
         return (
