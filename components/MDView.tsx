@@ -20,7 +20,7 @@ const Editor = memo(({ state, onContentChange, onKeyDown, textareaRef }: {
     state: EditorState;
     onContentChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
     onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
-    textareaRef: React.RefObject<HTMLTextAreaElement>;
+    textareaRef: React.RefObject<HTMLTextAreaElement | null>;
 }) => (
     <textarea
         ref={textareaRef}
