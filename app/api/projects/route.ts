@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllProjects } from '@/lib/markdown';
 import { updateMarkdown, addTask, deleteTask, updateTask, rewriteMarkdown } from '@/lib/markdown-updater';
-import { Task, TaskStatus } from '@/lib/types';
+import { TaskStatus } from '@/lib/types';
 import {
     validateProjectId,
     validateTaskContent,
@@ -12,25 +12,53 @@ import {
     withFileLock,
     sanitizeContent,
 } from '@/lib/security';
+import { apiLogger, logError } from '@/lib/logger';
+import { startApiTransaction, generateRequestId } from '@/lib/monitoring';
+import * as Sentry from '@sentry/nextjs';
 
 export async function GET() {
+    const requestId = generateRequestId();
+    const transaction = startApiTransaction({
+        method: 'GET',
+        path: '/api/projects',
+        requestId,
+    });
+
     try {
         const projects = await getAllProjects();
+        transaction.end(200, { projectCount: projects.length });
         return NextResponse.json(projects);
     } catch (error) {
-        console.error('Error reading projects:', error);
+        logError(error, { operation: 'GET /api/projects', requestId }, apiLogger);
+        Sentry.captureException(error, { extra: { requestId } });
+        transaction.end(500);
         return NextResponse.json({ error: 'Failed to read projects' }, { status: 500 });
     }
 }
 
 export async function POST(request: NextRequest) {
+    const requestId = generateRequestId();
+    const transaction = startApiTransaction({
+        method: 'POST',
+        path: '/api/projects',
+        requestId,
+    });
+
     try {
         const body = await request.json();
         const { action, projectId, task, content, status, dueDate, parentLineNumber, updates, tasks } = body;
 
+        apiLogger.debug({
+            requestId,
+            action,
+            projectId,
+        }, `Processing ${action} action for project ${projectId}`);
+
         // Validate project ID
         const projectIdValidation = validateProjectId(projectId);
         if (!projectIdValidation.valid) {
+            apiLogger.warn({ requestId, projectId, error: projectIdValidation.error }, 'Invalid project ID');
+            transaction.end(400, { action, error: 'invalid_project_id' });
             return NextResponse.json({ error: projectIdValidation.error }, { status: 400 });
         }
 
@@ -39,11 +67,15 @@ export async function POST(request: NextRequest) {
         const project = projects.find((p) => p.id === projectId);
 
         if (!project) {
+            apiLogger.warn({ requestId, projectId }, 'Project not found');
+            transaction.end(404, { action, error: 'project_not_found' });
             return NextResponse.json({ error: 'Project not found' }, { status: 404 });
         }
 
         // Validate file path to prevent path traversal
         if (!validateFilePath(project.path)) {
+            apiLogger.warn({ requestId, projectId, path: project.path }, 'Invalid file path - possible path traversal');
+            transaction.end(400, { action, error: 'invalid_file_path' });
             return NextResponse.json({ error: 'Invalid file path' }, { status: 400 });
         }
 
@@ -157,14 +189,24 @@ export async function POST(request: NextRequest) {
 
         // Check for validation errors from within the lock
         if (result && result.error) {
+            apiLogger.warn({ requestId, action, projectId, error: result.error }, 'Validation error in action');
+            transaction.end(result.status, { action, error: result.error });
             return NextResponse.json({ error: result.error }, { status: result.status });
         }
 
         // Return updated projects
         const updatedProjects = await getAllProjects();
+        apiLogger.info({
+            requestId,
+            action,
+            projectId,
+        }, `Successfully completed ${action} action for project ${projectId}`);
+        transaction.end(200, { action, projectId });
         return NextResponse.json(updatedProjects);
     } catch (error) {
-        console.error('Error updating project:', error);
+        logError(error, { operation: 'POST /api/projects', requestId, action: 'unknown' }, apiLogger);
+        Sentry.captureException(error, { extra: { requestId } });
+        transaction.end(500);
         const errorMessage = error instanceof Error ? error.message : 'Failed to update project';
         return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
