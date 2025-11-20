@@ -12,6 +12,9 @@ import {
     withFileLock,
     sanitizeContent,
 } from '@/lib/security';
+import { apiLogger, logError } from '@/lib/logger';
+import { startApiTransaction, generateRequestId } from '@/lib/monitoring';
+import * as Sentry from '@sentry/nextjs';
 
 interface RouteContext {
     params: Promise<{
@@ -24,11 +27,26 @@ interface RouteContext {
  * Creates a new task in the project
  */
 export async function POST(request: NextRequest, context: RouteContext) {
+    const requestId = generateRequestId();
+    const params = await context.params;
+    const projectId = params.projectId;
+
+    const transaction = startApiTransaction({
+        method: 'POST',
+        path: `/api/v1/projects/${projectId}/tasks`,
+        requestId,
+    });
+
     try {
-        const params = await context.params;
-        const projectId = params.projectId;
         const body = await request.json();
         const { content, status, dueDate, parentLineNumber } = body;
+
+        apiLogger.debug({
+            requestId,
+            projectId,
+            status,
+            hasParent: !!parentLineNumber,
+        }, `Creating new task in project ${projectId}`);
 
         // Validate project ID
         const projectIdValidation = validateProjectId(projectId);
@@ -93,6 +111,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
         // Check for validation errors
         if (result && result.error) {
+            apiLogger.warn({ requestId, projectId, error: result.error }, 'Validation error creating task');
+            transaction.end(result.status, { error: result.error });
             return NextResponse.json(
                 { error: result.error },
                 { status: result.status }
@@ -101,9 +121,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
         // Return updated projects
         const updatedProjects = await getAllProjects();
+        apiLogger.info({ requestId, projectId }, `Successfully created task in project ${projectId}`);
+        transaction.end(201, { projectId });
         return NextResponse.json(updatedProjects, { status: 201 });
     } catch (error) {
-        console.error('Error adding task:', error);
+        logError(error, { operation: 'POST /api/v1/projects/tasks', requestId, projectId }, apiLogger);
+        Sentry.captureException(error, { extra: { requestId, projectId } });
+        transaction.end(500);
         const errorMessage = error instanceof Error ? error.message : 'Failed to add task';
         return NextResponse.json(
             { error: errorMessage },
