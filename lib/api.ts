@@ -144,6 +144,39 @@ export async function reorderTasks(
 }
 
 /**
+ * Fetch raw Markdown content for a project
+ * @throws {ApiError} if the API request fails
+ */
+export async function fetchRawMarkdown(projectId: string): Promise<string> {
+    const res = await fetch(`/api/v1/projects/${encodeURIComponent(projectId)}/raw`);
+
+    if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+        throw new ApiError(errorData.error || 'Failed to load project content', res.status);
+    }
+
+    const data = await res.json();
+    return data.content;
+}
+
+/**
+ * Save raw Markdown content for a project
+ * @throws {ApiError} if the API request fails
+ */
+export async function saveRawMarkdown(projectId: string, content: string): Promise<void> {
+    const res = await fetch(`/api/v1/projects/${encodeURIComponent(projectId)}/raw`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content }),
+    });
+
+    if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+        throw new ApiError(errorData.error || 'Failed to save project content', res.status);
+    }
+}
+
+/**
  * Get a user-friendly error message
  */
 export function getErrorMessage(error: unknown): string {

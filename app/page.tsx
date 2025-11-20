@@ -5,6 +5,7 @@ import { Project, Task, TaskStatus } from '@/lib/types';
 import Sidebar from '@/components/Sidebar';
 import TreeView from '@/components/TreeView';
 import WeeklyView from '@/components/WeeklyView';
+import MDView from '@/components/MDView';
 import AddTaskModal from '@/components/AddTaskModal';
 import Toast, { ToastMessage, ToastType } from '@/components/Toast';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -20,7 +21,7 @@ import {
 } from '@/lib/api';
 import styles from './page.module.css';
 
-type ViewType = 'tree' | 'weekly';
+type ViewType = 'tree' | 'weekly' | 'md';
 
 export default function Home() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -246,6 +247,13 @@ export default function Home() {
                 <WeeklyView
                   tasks={currentProject.tasks}
                   onTaskUpdate={handleTaskUpdate}
+                />
+              )}
+              {currentView === 'md' && currentProject && (
+                <MDView
+                  projectId={currentProject.id}
+                  onSaveSuccess={loadProjects}
+                  onError={(message) => showToast('error', message)}
                 />
               )}
             </ErrorBoundary>
