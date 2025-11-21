@@ -34,7 +34,16 @@ export function loadUsers(): AppUser[] {
         const content = fs.readFileSync(USERS_FILE, 'utf-8');
         return JSON.parse(content);
     } catch (error) {
-        securityLogger.error({ error }, 'Failed to load users');
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorStack = error instanceof Error ? error.stack : undefined;
+        securityLogger.error(
+            {
+                error: errorMessage,
+                stack: errorStack,
+                filePath: USERS_FILE
+            },
+            'Failed to load users'
+        );
         return [];
     }
 }
