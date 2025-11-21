@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Project } from '@/lib/types';
 import { FileText, LayoutList, Calendar, Code, Plus } from 'lucide-react';
 import styles from './Sidebar.module.css';
@@ -11,6 +12,7 @@ interface SidebarProps {
     onViewChange: (view: 'tree' | 'weekly' | 'md') => void;
     onProjectSelect: (projectId: string) => void;
     onCreateProject: () => void;
+    onProjectTitleUpdate: (projectId: string, newTitle: string) => Promise<void>;
 }
 
 export default function Sidebar({
@@ -20,7 +22,54 @@ export default function Sidebar({
     onViewChange,
     onProjectSelect,
     onCreateProject,
+    onProjectTitleUpdate,
 }: SidebarProps) {
+    const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+    const [editingTitle, setEditingTitle] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const handleDoubleClick = (project: Project) => {
+        setEditingProjectId(project.id);
+        setEditingTitle(project.title);
+    };
+
+    const handleSave = async () => {
+        if (!editingProjectId || isSubmitting) return;
+
+        const trimmedTitle = editingTitle.trim();
+        if (!trimmedTitle) {
+            // Cancel if empty
+            setEditingProjectId(null);
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            await onProjectTitleUpdate(editingProjectId, trimmedTitle);
+            setEditingProjectId(null);
+        } catch (error) {
+            console.error('Failed to update project title:', error);
+            // Keep editing mode open on error
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleCancel = () => {
+        setEditingProjectId(null);
+        setEditingTitle('');
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleSave();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            handleCancel();
+        }
+    };
+
     return (
         <aside className={styles.sidebar}>
             <div className={styles.header}>
@@ -65,14 +114,33 @@ export default function Sidebar({
                         </button>
                     </div>
                     {projects.map((project) => (
-                        <button
+                        <div
                             key={project.id}
                             className={`${styles.navItem} ${currentProjectId === project.id ? styles.active : ''}`}
-                            onClick={() => onProjectSelect(project.id)}
                         >
                             <FileText size={18} />
-                            <span>{project.title}</span>
-                        </button>
+                            {editingProjectId === project.id ? (
+                                <input
+                                    type="text"
+                                    value={editingTitle}
+                                    onChange={(e) => setEditingTitle(e.target.value)}
+                                    onBlur={handleSave}
+                                    onKeyDown={handleKeyDown}
+                                    disabled={isSubmitting}
+                                    autoFocus
+                                    className={styles.editInput}
+                                    maxLength={100}
+                                />
+                            ) : (
+                                <span
+                                    onClick={() => onProjectSelect(project.id)}
+                                    onDoubleClick={() => handleDoubleClick(project)}
+                                    className={styles.projectTitle}
+                                >
+                                    {project.title}
+                                </span>
+                            )}
+                        </div>
                     ))}
                 </div>
             </nav>

@@ -307,3 +307,33 @@ export function createProjectFile(filePath: string, title: string): void {
 
     fs.writeFileSync(filePath, content, config.fileEncoding);
 }
+
+/**
+ * Updates the project title (H1) in a markdown file
+ * @param filePath - Path to the markdown file
+ * @param newTitle - New project title
+ */
+export function updateProjectTitle(filePath: string, newTitle: string): void {
+    const config = getConfig();
+
+    // Read current content
+    const content = fs.readFileSync(filePath, config.fileEncoding);
+    const lines = content.split('\n');
+
+    // Find and update the first H1 heading
+    let updated = false;
+    const updatedLines = lines.map(line => {
+        if (!updated && line.startsWith('# ')) {
+            updated = true;
+            return `# ${newTitle}`;
+        }
+        return line;
+    });
+
+    // If no H1 found, add it at the beginning
+    if (!updated) {
+        updatedLines.unshift(`# ${newTitle}`);
+    }
+
+    fs.writeFileSync(filePath, updatedLines.join('\n'), config.fileEncoding);
+}

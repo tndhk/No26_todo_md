@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Sidebar from '@/components/Sidebar';
 import { Project } from '@/lib/types';
@@ -25,6 +25,8 @@ jest.mock('@/components/Sidebar.module.css', () => ({
   addButton: 'addButton',
   navItem: 'navItem',
   active: 'active',
+  projectTitle: 'projectTitle',
+  editInput: 'editInput',
 }));
 
 describe('Sidebar', () => {
@@ -56,6 +58,7 @@ describe('Sidebar', () => {
     onViewChange: jest.fn(),
     onProjectSelect: jest.fn(),
     onCreateProject: jest.fn(),
+    onProjectTitleUpdate: jest.fn(),
   };
 
   beforeEach(() => {
@@ -183,18 +186,18 @@ describe('Sidebar', () => {
     it('should highlight active project', () => {
       render(<Sidebar {...defaultProps} currentProjectId="project-2" />);
 
-      const project2Button = screen.getByText('Project Two').closest('button');
-      expect(project2Button).toHaveClass('active');
+      const project2Item = screen.getByText('Project Two').closest('.navItem');
+      expect(project2Item).toHaveClass('active');
     });
 
     it('should only highlight one project at a time', () => {
       render(<Sidebar {...defaultProps} currentProjectId="project-1" />);
 
-      const project1Button = screen.getByText('Project One').closest('button');
-      const project2Button = screen.getByText('Project Two').closest('button');
+      const project1Item = screen.getByText('Project One').closest('.navItem');
+      const project2Item = screen.getByText('Project Two').closest('.navItem');
 
-      expect(project1Button).toHaveClass('active');
-      expect(project2Button).not.toHaveClass('active');
+      expect(project1Item).toHaveClass('active');
+      expect(project2Item).not.toHaveClass('active');
     });
 
     it('should call onProjectSelect when project is clicked', async () => {
@@ -229,15 +232,15 @@ describe('Sidebar', () => {
     it('should handle no active project', () => {
       render(<Sidebar {...defaultProps} currentProjectId={undefined} />);
 
-      const project1Button = screen.getByText('Project One').closest('button');
-      expect(project1Button).not.toHaveClass('active');
+      const project1Item = screen.getByText('Project One').closest('.navItem');
+      expect(project1Item).not.toHaveClass('active');
     });
 
     it('should handle non-existent active project ID', () => {
       render(<Sidebar {...defaultProps} currentProjectId="non-existent" />);
 
-      const project1Button = screen.getByText('Project One').closest('button');
-      expect(project1Button).not.toHaveClass('active');
+      const project1Item = screen.getByText('Project One').closest('.navItem');
+      expect(project1Item).not.toHaveClass('active');
     });
   });
 
@@ -283,12 +286,13 @@ describe('Sidebar', () => {
       });
     });
 
-    it('should render project buttons as buttons', () => {
+    it('should render project items as clickable elements', () => {
       render(<Sidebar {...defaultProps} />);
 
       mockProjects.forEach(project => {
-        const button = screen.getByText(project.title).closest('button');
-        expect(button).toBeInTheDocument();
+        const item = screen.getByText(project.title);
+        expect(item).toBeInTheDocument();
+        expect(item).toHaveClass('projectTitle');
       });
     });
 
@@ -382,8 +386,8 @@ describe('Sidebar', () => {
     it('should apply active class to current project', () => {
       render(<Sidebar {...defaultProps} currentProjectId="project-2" />);
 
-      const project2Button = screen.getByText('Project Two').closest('button');
-      expect(project2Button?.className).toContain('active');
+      const project2Item = screen.getByText('Project Two').closest('.navItem');
+      expect(project2Item?.className).toContain('active');
     });
 
     it('should apply navItem class to all navigation items', () => {
@@ -424,6 +428,121 @@ describe('Sidebar', () => {
 
       const createButton = screen.getByTitle('Create new project');
       expect(createButton.tagName).toBe('BUTTON');
+    });
+  });
+
+  describe('project title editing', () => {
+    it('should enter edit mode on double-click', async () => {
+      render(<Sidebar {...defaultProps} />);
+
+      const projectTitle = screen.getByText('Project One');
+      await userEvent.dblClick(projectTitle);
+
+      const input = screen.getByDisplayValue('Project One');
+      expect(input).toBeInTheDocument();
+      expect(input).toHaveFocus();
+    });
+
+    it('should update input value when user types', async () => {
+      render(<Sidebar {...defaultProps} />);
+
+      const projectTitle = screen.getByText('Project One');
+      await userEvent.dblClick(projectTitle);
+
+      const input = screen.getByDisplayValue('Project One');
+      await userEvent.clear(input);
+      await userEvent.type(input, 'Updated Project');
+
+      expect(input).toHaveValue('Updated Project');
+    });
+
+    it('should call onProjectTitleUpdate when Enter is pressed', async () => {
+      const mockOnProjectTitleUpdate = jest.fn().mockResolvedValue(undefined);
+      render(<Sidebar {...defaultProps} onProjectTitleUpdate={mockOnProjectTitleUpdate} />);
+
+      const projectTitle = screen.getByText('Project One');
+      await userEvent.dblClick(projectTitle);
+
+      const input = screen.getByDisplayValue('Project One');
+      await userEvent.clear(input);
+      await userEvent.type(input, 'Updated Project{Enter}');
+
+      await waitFor(() => {
+        expect(mockOnProjectTitleUpdate).toHaveBeenCalledWith('project-1', 'Updated Project');
+      });
+    });
+
+    it('should call onProjectTitleUpdate when input loses focus', async () => {
+      const mockOnProjectTitleUpdate = jest.fn().mockResolvedValue(undefined);
+      render(<Sidebar {...defaultProps} onProjectTitleUpdate={mockOnProjectTitleUpdate} />);
+
+      const projectTitle = screen.getByText('Project One');
+      await userEvent.dblClick(projectTitle);
+
+      const input = screen.getByDisplayValue('Project One');
+      await userEvent.clear(input);
+      await userEvent.type(input, 'Updated Project');
+      input.blur();
+
+      await waitFor(() => {
+        expect(mockOnProjectTitleUpdate).toHaveBeenCalledWith('project-1', 'Updated Project');
+      });
+    });
+
+    it('should cancel editing on Escape key', async () => {
+      render(<Sidebar {...defaultProps} />);
+
+      const projectTitle = screen.getByText('Project One');
+      await userEvent.dblClick(projectTitle);
+
+      const input = screen.getByDisplayValue('Project One');
+      await userEvent.clear(input);
+      await userEvent.type(input, 'Updated Project{Escape}');
+
+      // Should exit edit mode
+      expect(screen.queryByDisplayValue('Updated Project')).not.toBeInTheDocument();
+      expect(screen.getByText('Project One')).toBeInTheDocument();
+    });
+
+    it('should not call onProjectTitleUpdate if title is empty', async () => {
+      const mockOnProjectTitleUpdate = jest.fn().mockResolvedValue(undefined);
+      render(<Sidebar {...defaultProps} onProjectTitleUpdate={mockOnProjectTitleUpdate} />);
+
+      const projectTitle = screen.getByText('Project One');
+      await userEvent.dblClick(projectTitle);
+
+      const input = screen.getByDisplayValue('Project One');
+      await userEvent.clear(input);
+      input.blur();
+
+      expect(mockOnProjectTitleUpdate).not.toHaveBeenCalled();
+    });
+
+    it('should limit input to 100 characters', async () => {
+      render(<Sidebar {...defaultProps} />);
+
+      const projectTitle = screen.getByText('Project One');
+      await userEvent.dblClick(projectTitle);
+
+      const input = screen.getByDisplayValue('Project One') as HTMLInputElement;
+      expect(input.maxLength).toBe(100);
+    });
+
+    it('should disable input during submission', async () => {
+      const mockOnProjectTitleUpdate = jest.fn().mockImplementation(
+        () => new Promise(resolve => setTimeout(resolve, 100))
+      );
+      render(<Sidebar {...defaultProps} onProjectTitleUpdate={mockOnProjectTitleUpdate} />);
+
+      const projectTitle = screen.getByText('Project One');
+      await userEvent.dblClick(projectTitle);
+
+      const input = screen.getByDisplayValue('Project One');
+      await userEvent.clear(input);
+      await userEvent.type(input, 'Updated{Enter}');
+
+      // Should be disabled during submission
+      expect(input).toBeDisabled();
     });
   });
 });
