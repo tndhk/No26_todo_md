@@ -157,6 +157,25 @@ export async function createProject(userId: string, projectId: string, title: st
 }
 
 /**
+ * Update a project's title
+ */
+export async function updateProject(userId: string, projectId: string, title: string): Promise<void> {
+    if (!supabaseAdmin) {
+        throw new Error('Supabase is not configured');
+    }
+
+    const { error } = await supabaseAdmin
+        .from('projects')
+        .update({ title })
+        .eq('id', projectId)
+        .eq('user_id', userId);
+
+    if (error) {
+        throw new Error(`Failed to update project: ${error.message}`);
+    }
+}
+
+/**
  * Update a task
  */
 export async function updateTask(

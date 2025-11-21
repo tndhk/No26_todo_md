@@ -57,6 +57,23 @@ export async function createProject(title: string): Promise<Project> {
 }
 
 /**
+ * Update a project's title
+ * @throws {ApiError} if the API request fails
+ */
+export async function updateProjectTitle(projectId: string, title: string): Promise<void> {
+    const res = await fetch(`/api/v1/projects/${encodeURIComponent(projectId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title }),
+    });
+
+    if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+        throw new ApiError(errorData.error || 'Failed to update project title', res.status);
+    }
+}
+
+/**
  * Add a new task
  * @throws {ApiError} if the API request fails
  * @throws {ApiValidationError} if response validation fails

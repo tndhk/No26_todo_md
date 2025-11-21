@@ -18,6 +18,7 @@ import { triggerConfetti } from '@/lib/confetti';
 import {
   fetchProjects,
   createProject,
+  updateProjectTitle,
   addTask as apiAddTask,
   updateTask as apiUpdateTask,
   deleteTask as apiDeleteTask,
@@ -270,6 +271,28 @@ export default function Home() {
     }
   };
 
+  const handleProjectTitleUpdate = async (projectId: string, newTitle: string) => {
+    const previousProjects = projects;
+
+    // Optimistic update - immediately update UI
+    setProjects(prev => prev.map(project =>
+      project.id === projectId
+        ? { ...project, title: newTitle }
+        : project
+    ));
+
+    try {
+      await updateProjectTitle(projectId, newTitle);
+      showToast('success', `Project renamed to "${newTitle}"`);
+    } catch (error) {
+      // Rollback on error
+      setProjects(previousProjects);
+      console.error('Failed to update project title:', error);
+      showToast('error', getErrorMessage(error));
+      throw error; // Re-throw to let Sidebar handle the error
+    }
+  };
+
   // Show loading state while checking authentication
   if (status === 'loading' || loading) {
     return (
@@ -295,6 +318,7 @@ export default function Home() {
             onViewChange={setCurrentView}
             onProjectSelect={setCurrentProjectId}
             onCreateProject={() => setIsCreateProjectModalOpen(true)}
+            onProjectTitleUpdate={handleProjectTitleUpdate}
           />
         </ErrorBoundary>
 
