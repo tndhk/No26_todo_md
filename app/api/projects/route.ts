@@ -183,7 +183,7 @@ export async function POST(request: NextRequest) {
                     if (updates?.status === 'done' && task.repeatFrequency) {
                         // For recurring tasks, we need the full task object with content
                         // Find the full task from the project
-                        const findFullTask = (tasks: any[]): any => {
+                        const findFullTask = (tasks: Task[]): Task | null => {
                             for (const t of tasks) {
                                 if (t.id === task.id) {
                                     return t;
