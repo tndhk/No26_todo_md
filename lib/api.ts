@@ -155,13 +155,17 @@ export async function fetchRawMarkdown(projectId: string): Promise<string> {
     console.log('[fetchRawMarkdown] URL:', url, 'projectId:', projectId);
 
     const res = await fetch(url);
+    console.log('[fetchRawMarkdown] Response status:', res.status, 'ok:', res.ok);
 
     if (!res.ok) {
         const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('[fetchRawMarkdown] Error response:', errorData);
         throw new ApiError(errorData.error || 'Failed to load project content', res.status);
     }
 
     const data = await res.json();
+    console.log('[fetchRawMarkdown] Response data:', data);
+    console.log('[fetchRawMarkdown] Content type:', typeof data.content, 'length:', data.content?.length);
     return data.content || '';
 }
 
