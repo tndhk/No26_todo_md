@@ -49,6 +49,15 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
         // Check if file exists
         console.log('[raw/GET] File exists:', fs.existsSync(filePath));
+
+        // Debug: List files in directory
+        try {
+            const filesInDir = fs.readdirSync(dataDir);
+            console.log('[raw/GET] Files in dataDir:', filesInDir);
+        } catch (err) {
+            console.log('[raw/GET] Error reading dataDir:', err);
+        }
+
         if (!fs.existsSync(filePath)) {
             return NextResponse.json(
                 { error: 'Project not found' },
