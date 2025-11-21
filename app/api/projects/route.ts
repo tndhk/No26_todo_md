@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAllProjects } from '@/lib/markdown';
 import { updateMarkdown, addTask as addTaskFile, deleteTask as deleteTaskFile, updateTask as updateTaskFile, rewriteMarkdown, handleRecurringTask as handleRecurringTaskFile } from '@/lib/markdown-updater';
 import { addTask as addTaskDB, deleteTask as deleteTaskDB, updateTask as updateTaskDB, reorderTasks as reorderTasksDB, handleRecurringTask as handleRecurringTaskDB } from '@/lib/supabase-adapter';
-import { TaskStatus, RepeatFrequency } from '@/lib/types';
+import { Task, TaskStatus, RepeatFrequency } from '@/lib/types';
 import {
     validateProjectId,
     validateTaskContent,
