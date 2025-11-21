@@ -112,13 +112,13 @@ describe('security', () => {
     });
 
     it('should reject null title', () => {
-      const result = validateProjectTitle(null as any);
+      const result = validateProjectTitle(null as unknown as string);
       expect(result.valid).toBe(false);
       expect(result.error).toBe('Project title is required');
     });
 
     it('should reject non-string title', () => {
-      const result = validateProjectTitle(123 as any);
+      const result = validateProjectTitle(123 as unknown as string);
       expect(result.valid).toBe(false);
       expect(result.error).toBe('Project title is required');
     });
