@@ -11,7 +11,7 @@ import * as monitoring from '@/lib/monitoring';
 import * as Sentry from '@sentry/nextjs';
 
 type MockSession = {
-  user?: { id?: string; email?: string };
+  user?: { id?: string };
 };
 
 // Mock all dependencies
@@ -71,7 +71,7 @@ describe('API /api/v1/projects', () => {
 
     // Mock auth
     mockAuth.auth.mockResolvedValue({
-      user: { id: 'user123', email: 'test@example.com' },
+      user: { id: 'user123' },
     } as MockSession);
     mockAuth.getUserDataDir.mockReturnValue('/data/user123');
 
@@ -111,7 +111,7 @@ describe('API /api/v1/projects', () => {
 
     it('should return 401 when user ID is missing', async () => {
       mockAuth.auth.mockResolvedValue({
-        user: { email: 'test@example.com' },
+        user: {},
       } as MockSession);
 
       const response = await GET();
@@ -177,7 +177,7 @@ describe('API /api/v1/projects', () => {
 
     it('should use user-specific data directory', async () => {
       mockAuth.auth.mockResolvedValue({
-        user: { id: 'different-user', email: 'other@example.com' },
+        user: { id: 'different-user' },
       } as MockSession);
       mockAuth.getUserDataDir.mockReturnValue('/data/different-user');
 

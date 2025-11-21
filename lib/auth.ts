@@ -12,7 +12,7 @@ import { authConfig } from './auth.config';
 export interface AppUser {
     id: string;
     name: string;
-    email: string;
+    username: string;
     hashedPassword: string;
     dataDir: string; // User-specific data directory
     createdAt: string;
@@ -51,11 +51,11 @@ export function saveUsers(users: AppUser[]): void {
 }
 
 /**
- * Find a user by email
+ * Find a user by username
  */
-export function findUserByEmail(email: string): AppUser | undefined {
+export function findUserByUsername(username: string): AppUser | undefined {
     const users = loadUsers();
-    return users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    return users.find(u => u.username.toLowerCase() === username.toLowerCase());
 }
 
 /**
@@ -71,14 +71,14 @@ export function findUserById(id: string): AppUser | undefined {
  */
 export async function createUser(
     name: string,
-    email: string,
+    username: string,
     password: string
 ): Promise<AppUser> {
     const users = loadUsers();
 
     // Check if user already exists
-    if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
-        throw new Error('User with this email already exists');
+    if (users.find(u => u.username.toLowerCase() === username.toLowerCase())) {
+        throw new Error('User with this username already exists');
     }
 
     // Generate unique ID and hash password
@@ -101,7 +101,7 @@ export async function createUser(
     const newUser: AppUser = {
         id,
         name,
-        email: email.toLowerCase(),
+        username: username.toLowerCase(),
         hashedPassword,
         dataDir: userDataDir,
         createdAt: new Date().toISOString(),
@@ -110,7 +110,7 @@ export async function createUser(
     users.push(newUser);
     saveUsers(users);
 
-    securityLogger.info({ userId: id, email }, 'New user created');
+    securityLogger.info({ userId: id, username }, 'New user created');
 
     return newUser;
 }
@@ -119,24 +119,24 @@ export async function createUser(
  * Verify user credentials
  */
 export async function verifyCredentials(
-    email: string,
+    username: string,
     password: string
 ): Promise<AppUser | null> {
-    const user = findUserByEmail(email);
+    const user = findUserByUsername(username);
 
     if (!user) {
-        securityLogger.warn({ email }, 'Login attempt for non-existent user');
+        securityLogger.warn({ username }, 'Login attempt for non-existent user');
         return null;
     }
 
     const isValid = await bcrypt.compare(password, user.hashedPassword);
 
     if (!isValid) {
-        securityLogger.warn({ email, userId: user.id }, 'Invalid password attempt');
+        securityLogger.warn({ username, userId: user.id }, 'Invalid password attempt');
         return null;
     }
 
-    securityLogger.info({ userId: user.id, email }, 'User authenticated successfully');
+    securityLogger.info({ userId: user.id, username }, 'User authenticated successfully');
     return user;
 }
 
@@ -187,16 +187,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         Credentials({
             name: 'credentials',
             credentials: {
-                email: { label: 'Email', type: 'email' },
+                username: { label: 'Username', type: 'text' },
                 password: { label: 'Password', type: 'password' },
             },
             async authorize(credentials): Promise<User | null> {
-                if (!credentials?.email || !credentials?.password) {
+                if (!credentials?.username || !credentials?.password) {
                     return null;
                 }
 
                 const user = await verifyCredentials(
-                    credentials.email as string,
+                    credentials.username as string,
                     credentials.password as string
                 );
 
@@ -207,7 +207,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 return {
                     id: user.id,
                     name: user.name,
-                    email: user.email,
                 };
             },
         }),

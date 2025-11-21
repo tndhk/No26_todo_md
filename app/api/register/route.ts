@@ -5,7 +5,10 @@ import { z } from 'zod';
 
 const registerSchema = z.object({
     name: z.string().min(1, 'Name is required').max(100, 'Name is too long'),
-    email: z.string().email('Invalid email address'),
+    username: z.string().min(3, 'Username must be at least 3 characters').max(50, 'Username is too long').regex(
+        /^[a-zA-Z0-9_]+$/,
+        'Username can only contain letters, numbers, and underscores'
+    ),
     password: z
         .string()
         .min(8, 'Password must be at least 8 characters')
@@ -29,12 +32,12 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const { name, email, password } = result.data;
+        const { name, username, password } = result.data;
 
         // Create user
-        const user = await createUser(name, email, password);
+        const user = await createUser(name, username, password);
 
-        securityLogger.info({ userId: user.id, email }, 'User registered successfully');
+        securityLogger.info({ userId: user.id, username }, 'User registered successfully');
 
         return NextResponse.json(
             {
@@ -42,15 +45,15 @@ export async function POST(request: NextRequest) {
                 user: {
                     id: user.id,
                     name: user.name,
-                    email: user.email,
+                    username: user.username,
                 },
             },
             { status: 201 }
         );
     } catch (error) {
-        if (error instanceof Error && error.message === 'User with this email already exists') {
+        if (error instanceof Error && error.message === 'User with this username already exists') {
             return NextResponse.json(
-                { error: 'User with this email already exists' },
+                { error: 'User with this username already exists' },
                 { status: 409 }
             );
         }

@@ -7,7 +7,7 @@ import Link from 'next/link';
 export default function RegisterPage() {
     const router = useRouter();
     const [name, setName] = useState('');
-    const [email, setEmail] = useState('');
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -33,7 +33,7 @@ export default function RegisterPage() {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ name, email, password }),
+                body: JSON.stringify({ name, username, password }),
             });
 
             const data = await response.json();
@@ -103,19 +103,19 @@ export default function RegisterPage() {
                         </div>
 
                         <div>
-                            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                                Email address
+                            <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+                                Username
                             </label>
                             <input
-                                id="email"
-                                name="email"
-                                type="email"
-                                autoComplete="email"
+                                id="username"
+                                name="username"
+                                type="text"
+                                autoComplete="username"
                                 required
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
                                 className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                                placeholder="you@example.com"
+                                placeholder="your_username"
                             />
                         </div>
 
