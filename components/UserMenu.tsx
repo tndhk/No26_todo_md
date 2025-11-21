@@ -39,7 +39,7 @@ export default function UserMenu() {
             <div className="flex items-center space-x-2">
                 <User className="w-5 h-5 text-gray-500" />
                 <span className="text-sm font-medium text-gray-700">
-                    {session.user?.name || session.user?.email}
+                    {session.user?.name}
                 </span>
             </div>
             <button
