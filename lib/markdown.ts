@@ -3,7 +3,7 @@ import path from 'path';
 import { Project, Task, TaskStatus, RepeatFrequency } from './types';
 import { getConfig } from './config';
 import { getAllProjects as getAllProjectsFromDB } from './supabase-adapter';
-import { auth } from '@/auth';
+import { auth } from './auth';
 
 /**
  * Get all projects - uses Supabase by default, falls back to files if not configured
