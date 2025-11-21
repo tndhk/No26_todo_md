@@ -37,6 +37,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
         // Build file path
         const filePath = path.join(dataDir, `${projectId}.md`);
 
+        console.log('[raw/GET] userId:', userId, 'dataDir:', dataDir, 'projectId:', projectId, 'filePath:', filePath);
+
         // Validate file path to prevent path traversal
         if (!validateFilePath(filePath)) {
             return NextResponse.json(
@@ -46,6 +48,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         }
 
         // Check if file exists
+        console.log('[raw/GET] File exists:', fs.existsSync(filePath));
         if (!fs.existsSync(filePath)) {
             return NextResponse.json(
                 { error: 'Project not found' },
