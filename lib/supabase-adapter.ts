@@ -402,7 +402,7 @@ export async function reorderTasks(projectId: string, tasks: Task[]): Promise<vo
 /**
  * Handle recurring task completion
  */
-export async function handleRecurringTask(task: Task): Promise<void> {
+export async function handleRecurringTask(task: Task, projectId: string): Promise<void> {
     // Mark current task as done
     await updateTask(task.id, { status: 'done' });
 
@@ -410,9 +410,6 @@ export async function handleRecurringTask(task: Task): Promise<void> {
     const nextDueDate = task.dueDate
         ? calculateNextDueDate(task.dueDate, task.repeatFrequency!)
         : undefined;
-
-    // Extract project ID from task ID
-    const projectId = task.id.split('-')[0];
 
     // Add new recurring task
     await addTask(

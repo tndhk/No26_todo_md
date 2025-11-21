@@ -200,7 +200,7 @@ export async function POST(request: NextRequest) {
                         if (fullTask) {
                             // handleRecurringTask handles marking as done and creating next occurrence
                             if (useSupabase) {
-                                await handleRecurringTaskDB(fullTask);
+                                await handleRecurringTaskDB(fullTask, projectId);
                             } else {
                                 handleRecurringTaskFile(project.path, fullTask);
                             }
