@@ -362,7 +362,7 @@ export async function batchAddTasks(
     function flattenTasks(taskList: Task[], indentLevel = 0) {
         for (const task of taskList) {
             const taskId = `${projectId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-            const parentId = task.parentId ? parentIdMap.get(task.parentId) : null;
+            const parentId = task.parentId ? (parentIdMap.get(task.parentId) ?? null) : null;
 
             tasksToInsert.push({
                 id: taskId,
