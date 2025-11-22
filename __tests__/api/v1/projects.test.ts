@@ -87,11 +87,15 @@ describe('API /api/v1/projects', () => {
 
     // Mock markdown
     mockMarkdown.getAllProjectsFromDir.mockResolvedValue(mockProjects);
+    mockMarkdown.getProjectByIdFromDir.mockResolvedValue(mockProjects[0]);
   });
 
   describe('GET /api/v1/projects', () => {
+    // Helper to create mock request
+    const createMockRequest = () => new NextRequest('http://localhost:3000/api/v1/projects');
+
     it('should return all projects for authenticated user', async () => {
-      const response = await GET();
+      const response = await GET(createMockRequest());
       const data = await response.json();
 
       expect(response.status).toBe(200);
@@ -102,7 +106,7 @@ describe('API /api/v1/projects', () => {
     it('should return 401 when user is not authenticated', async () => {
       mockAuth.auth.mockResolvedValue(null);
 
-      const response = await GET();
+      const response = await GET(createMockRequest());
       const data = await response.json();
 
       expect(response.status).toBe(401);
@@ -114,7 +118,7 @@ describe('API /api/v1/projects', () => {
         user: {},
       } as MockSession);
 
-      const response = await GET();
+      const response = await GET(createMockRequest());
       const data = await response.json();
 
       expect(response.status).toBe(401);
@@ -124,7 +128,7 @@ describe('API /api/v1/projects', () => {
     it('should return 500 on error', async () => {
       mockMarkdown.getAllProjectsFromDir.mockRejectedValue(new Error('Read error'));
 
-      const response = await GET();
+      const response = await GET(createMockRequest());
       const data = await response.json();
 
       expect(response.status).toBe(500);
@@ -132,13 +136,13 @@ describe('API /api/v1/projects', () => {
     });
 
     it('should generate request ID', async () => {
-      await GET();
+      await GET(createMockRequest());
 
       expect(mockMonitoring.generateRequestId).toHaveBeenCalled();
     });
 
     it('should start API transaction', async () => {
-      await GET();
+      await GET(createMockRequest());
 
       expect(mockMonitoring.startApiTransaction).toHaveBeenCalledWith({
         method: 'GET',
@@ -148,7 +152,7 @@ describe('API /api/v1/projects', () => {
     });
 
     it('should end transaction with 200 on success', async () => {
-      await GET();
+      await GET(createMockRequest());
 
       expect(mockTransaction.end).toHaveBeenCalledWith(200, {
         projectCount: mockProjects.length,
@@ -159,7 +163,7 @@ describe('API /api/v1/projects', () => {
     it('should end transaction with 500 on error', async () => {
       mockMarkdown.getAllProjectsFromDir.mockRejectedValue(new Error('Read error'));
 
-      await GET();
+      await GET(createMockRequest());
 
       expect(mockTransaction.end).toHaveBeenCalledWith(500);
     });
@@ -168,7 +172,7 @@ describe('API /api/v1/projects', () => {
       const error = new Error('Read error');
       mockMarkdown.getAllProjectsFromDir.mockRejectedValue(error);
 
-      await GET();
+      await GET(createMockRequest());
 
       expect(Sentry.captureException).toHaveBeenCalledWith(error, {
         extra: { requestId: 'req_123456_abc123' },
@@ -181,7 +185,7 @@ describe('API /api/v1/projects', () => {
       } as MockSession);
       mockAuth.getUserDataDir.mockReturnValue('/data/different-user');
 
-      await GET();
+      await GET(createMockRequest());
 
       expect(mockMarkdown.getAllProjectsFromDir).toHaveBeenCalledWith('/data/different-user');
     });
@@ -189,7 +193,7 @@ describe('API /api/v1/projects', () => {
     it('should return empty array when no projects', async () => {
       mockMarkdown.getAllProjectsFromDir.mockResolvedValue([]);
 
-      const response = await GET();
+      const response = await GET(createMockRequest());
       const data = await response.json();
 
       expect(response.status).toBe(200);
@@ -218,7 +222,8 @@ describe('API /api/v1/projects', () => {
       const data = await response.json();
 
       expect(response.status).toBe(201);
-      expect(data).toEqual(mockProjects);
+      // OPTIMIZATION: Now returns only the updated project, not all projects
+      expect(data).toEqual([mockProjects[0]]);
       expect(mockMarkdownUpdater.addTask).toHaveBeenCalled();
     });
 
@@ -252,7 +257,8 @@ describe('API /api/v1/projects', () => {
     });
 
     it('should return 404 for non-existent project', async () => {
-      mockMarkdown.getAllProjectsFromDir.mockResolvedValue([]);
+      // OPTIMIZATION: Mock getProjectByIdFromDir to return null for non-existent project
+      mockMarkdown.getProjectByIdFromDir.mockResolvedValue(null);
 
       const request = createRequest({
         content: 'Task',
@@ -452,24 +458,23 @@ describe('API /api/v1/projects', () => {
     });
 
     it('should return updated projects after adding task', async () => {
-      const updatedProjects = [
-        {
-          ...mockProjects[0],
-          tasks: [
-            {
-              id: 'test-1',
-              content: 'New Task',
-              status: 'todo',
-              subtasks: [],
-              rawLine: '- [ ] New Task',
-              lineNumber: 1,
-            },
-          ],
-        },
-      ];
+      const updatedProject = {
+        ...mockProjects[0],
+        tasks: [
+          {
+            id: 'test-1',
+            content: 'New Task',
+            status: 'todo',
+            subtasks: [],
+            rawLine: '- [ ] New Task',
+            lineNumber: 1,
+          },
+        ],
+      };
 
-      mockMarkdown.getAllProjectsFromDir.mockResolvedValueOnce(mockProjects); // First call
-      mockMarkdown.getAllProjectsFromDir.mockResolvedValueOnce(updatedProjects); // Second call
+      // OPTIMIZATION: Now uses getProjectByIdFromDir instead of getAllProjectsFromDir
+      mockMarkdown.getProjectByIdFromDir.mockResolvedValueOnce(mockProjects[0]); // First call
+      mockMarkdown.getProjectByIdFromDir.mockResolvedValueOnce(updatedProject); // Second call
 
       const request = createRequest({
         content: 'New Task',
@@ -480,7 +485,8 @@ describe('API /api/v1/projects', () => {
       const data = await response.json();
 
       expect(response.status).toBe(201);
-      expect(data).toEqual(updatedProjects);
+      // OPTIMIZATION: Returns only the updated project in an array
+      expect(data).toEqual([updatedProject]);
     });
 
     it('should return 500 on error', async () => {
