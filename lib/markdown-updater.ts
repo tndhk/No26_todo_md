@@ -1,7 +1,17 @@
 import fs from 'fs';
 import { Task, TaskStatus, Project, RepeatFrequency } from './types';
 import { getConfig } from './config';
+import {
+    TASK_LINE_PATTERN,
+    DUE_DATE_PATTERN,
+    REPEAT_FREQUENCY_PATTERN,
+} from './constants';
 
+/**
+ * Updates multiple tasks in a markdown file based on their line numbers
+ * @param filePath - Path to the markdown file
+ * @param tasks - Array of tasks with updated data
+ */
 export function updateMarkdown(filePath: string, tasks: Task[]): void {
     const config = getConfig();
     const content = fs.readFileSync(filePath, config.fileEncoding);
@@ -38,6 +48,13 @@ export function updateMarkdown(filePath: string, tasks: Task[]): void {
     fs.writeFileSync(filePath, updatedLines.join('\n'), config.fileEncoding);
 }
 
+/**
+ * Updates a single task at a specific line number
+ * @param filePath - Path to the markdown file
+ * @param lineNumber - Line number of the task (1-indexed)
+ * @param updates - Partial updates to apply (content, status, dueDate, repeatFrequency)
+ * @throws {Error} If the line number is invalid or the line is not a task
+ */
 export function updateTask(
     filePath: string,
     lineNumber: number,
@@ -56,19 +73,19 @@ export function updateTask(
     const currentCheckbox = line.match(/- \[(x| )\]/)?.[1] || ' ';
 
     // Parse current task
-    const taskMatch = line.match(/^(\s*)- \[(x| )\] (.*)/);
+    const taskMatch = line.match(TASK_LINE_PATTERN);
     if (!taskMatch) {
         throw new Error('Invalid task line');
     }
 
     const textContent = taskMatch[3];
     const currentContent = textContent
-        .replace(/#due:\d{4}-\d{2}-\d{2}/, '')
-        .replace(/#repeat:(daily|weekly|monthly)/, '')
+        .replace(DUE_DATE_PATTERN, '')
+        .replace(REPEAT_FREQUENCY_PATTERN, '')
         .trim();
 
     // Extract current repeat frequency
-    const currentRepeatMatch = textContent.match(/#repeat:(daily|weekly|monthly)/);
+    const currentRepeatMatch = textContent.match(REPEAT_FREQUENCY_PATTERN);
     const currentRepeatFrequency = currentRepeatMatch ? (currentRepeatMatch[1] as RepeatFrequency) : undefined;
 
     // Apply updates
@@ -84,6 +101,106 @@ export function updateTask(
     fs.writeFileSync(filePath, lines.join('\n'), config.fileEncoding);
 }
 
+/**
+ * Helper: Formats a task line with proper checkbox, due date, and repeat tags
+ */
+function formatTaskLine(
+    content: string,
+    status: TaskStatus,
+    dueDate?: string,
+    repeatFrequency?: RepeatFrequency
+): string {
+    const checkbox = status === 'done' ? '[x]' : '[ ]';
+    const dueTag = dueDate ? ` #due:${dueDate}` : '';
+    const repeatTag = repeatFrequency ? ` #repeat:${repeatFrequency}` : '';
+    return `- ${checkbox} ${content}${dueTag}${repeatTag}`;
+}
+
+/**
+ * Helper: Finds the insertion index for a subtask under a parent
+ */
+function findSubtaskInsertionIndex(
+    lines: string[],
+    parentLineNumber: number,
+    parentIndentLength: number
+): number {
+    let insertIndex = parentLineNumber;
+    for (let i = parentLineNumber; i < lines.length; i++) {
+        const line = lines[i];
+        const currentIndent = line.match(/^(\s*)/)?.[1] || '';
+        if (currentIndent.length <= parentIndentLength && line.trim()) {
+            break;
+        }
+        insertIndex = i + 1;
+    }
+    return insertIndex;
+}
+
+/**
+ * Helper: Finds the insertion index for a task in a section
+ */
+function findSectionInsertionIndex(
+    lines: string[],
+    sectionIndex: number
+): number {
+    let insertIndex = sectionIndex + 1;
+    for (let i = sectionIndex + 1; i < lines.length; i++) {
+        if (lines[i].startsWith('## ')) {
+            break;
+        }
+        if (lines[i].trim()) {
+            insertIndex = i + 1;
+        }
+    }
+    return insertIndex;
+}
+
+/**
+ * Helper: Finds or creates a section header for a given status
+ */
+function findOrCreateSection(
+    lines: string[],
+    status: TaskStatus
+): number {
+    const sectionName = getSectionName(status);
+
+    // Try to find existing section
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].match(new RegExp(`^## ${sectionName}`, 'i'))) {
+            return i;
+        }
+    }
+
+    // Section doesn't exist, create it
+    lines.push(`\n## ${sectionName}`);
+    return lines.length - 1;
+}
+
+/**
+ * Helper: Maps task status to section name
+ */
+function getSectionName(status: TaskStatus): string {
+    switch (status) {
+        case 'doing':
+            return 'Doing';
+        case 'done':
+            return 'Done';
+        case 'todo':
+        default:
+            return 'Todo';
+    }
+}
+
+/**
+ * Adds a new task to the markdown file
+ * @param filePath - Path to the markdown file
+ * @param content - Task content (without tags)
+ * @param status - Task status (determines section placement)
+ * @param dueDate - Optional due date in YYYY-MM-DD format
+ * @param parentLineNumber - Optional parent task line number (for subtasks)
+ * @param repeatFrequency - Optional repeat frequency for recurring tasks
+ * @throws {Error} If the file cannot be read or written
+ */
 export function addTask(
     filePath: string,
     content: string,
@@ -96,10 +213,7 @@ export function addTask(
     const fileContent = fs.readFileSync(filePath, config.fileEncoding);
     const lines = fileContent.split('\n');
 
-    const checkbox = status === 'done' ? '[x]' : '[ ]';
-    const dueTag = dueDate ? ` #due:${dueDate}` : '';
-    const repeatTag = repeatFrequency ? ` #repeat:${repeatFrequency}` : '';
-    const newTaskLine = `- ${checkbox} ${content}${dueTag}${repeatTag}`;
+    const newTaskLine = formatTaskLine(content, status, dueDate, repeatFrequency);
     const indentUnit = ' '.repeat(config.indentSpaces);
 
     if (parentLineNumber) {
@@ -108,54 +222,29 @@ export function addTask(
         const parentIndent = parentLine.match(/^(\s*)/)?.[1] || '';
         const childIndent = parentIndent + indentUnit;
 
-        // Find the last child of the parent
-        let insertIndex = parentLineNumber;
-        for (let i = parentLineNumber; i < lines.length; i++) {
-            const line = lines[i];
-            const currentIndent = line.match(/^(\s*)/)?.[1] || '';
-            if (currentIndent.length <= parentIndent.length && line.trim()) {
-                break;
-            }
-            insertIndex = i + 1;
-        }
+        const insertIndex = findSubtaskInsertionIndex(
+            lines,
+            parentLineNumber,
+            parentIndent.length
+        );
 
         lines.splice(insertIndex, 0, `${childIndent}${newTaskLine}`);
     } else {
         // Add to the appropriate section
-        let sectionName = 'Todo';
-        if (status === 'doing') sectionName = 'Doing';
-        if (status === 'done') sectionName = 'Done';
+        const sectionIndex = findOrCreateSection(lines, status);
+        const insertIndex = findSectionInsertionIndex(lines, sectionIndex);
 
-        let sectionIndex = -1;
-        for (let i = 0; i < lines.length; i++) {
-            if (lines[i].match(new RegExp(`^## ${sectionName}`, 'i'))) {
-                sectionIndex = i;
-                break;
-            }
-        }
-
-        if (sectionIndex === -1) {
-            // Section doesn't exist, create it
-            lines.push(`\n## ${sectionName}`);
-            lines.push(newTaskLine);
-        } else {
-            // Find the end of the section
-            let insertIndex = sectionIndex + 1;
-            for (let i = sectionIndex + 1; i < lines.length; i++) {
-                if (lines[i].startsWith('## ')) {
-                    break;
-                }
-                if (lines[i].trim()) {
-                    insertIndex = i + 1;
-                }
-            }
-            lines.splice(insertIndex, 0, newTaskLine);
-        }
+        lines.splice(insertIndex, 0, newTaskLine);
     }
 
     fs.writeFileSync(filePath, lines.join('\n'), config.fileEncoding);
 }
 
+/**
+ * Deletes a task and all its subtasks from a markdown file
+ * @param filePath - Path to the markdown file
+ * @param lineNumber - Line number of the task to delete (1-indexed)
+ */
 export function deleteTask(filePath: string, lineNumber: number): void {
     const config = getConfig();
     const content = fs.readFileSync(filePath, config.fileEncoding);
@@ -184,6 +273,12 @@ export function deleteTask(filePath: string, lineNumber: number): void {
     fs.writeFileSync(filePath, lines.join('\n'), config.fileEncoding);
 }
 
+/**
+ * Completely rewrites a markdown file with the given project data
+ * Used for major reorganizations like reordering or bulk updates
+ * @param filePath - Path to the markdown file
+ * @param project - Complete project data to write
+ */
 export function rewriteMarkdown(filePath: string, project: Project): void {
     const config = getConfig();
     const lines: string[] = [];
@@ -197,10 +292,13 @@ export function rewriteMarkdown(filePath: string, project: Project): void {
     function writeTasks(tasks: Task[], indentLevel: number = 0) {
         tasks.forEach(task => {
             const indent = indentUnit.repeat(indentLevel);
-            const checkbox = task.status === 'done' ? '[x]' : '[ ]';
-            const dueTag = task.dueDate ? ` #due:${task.dueDate}` : '';
-            const repeatTag = task.repeatFrequency ? ` #repeat:${task.repeatFrequency}` : '';
-            lines.push(`${indent}- ${checkbox} ${task.content}${dueTag}${repeatTag}`);
+            const taskLine = formatTaskLine(
+                task.content,
+                task.status,
+                task.dueDate,
+                task.repeatFrequency
+            );
+            lines.push(`${indent}${taskLine}`);
 
             if (task.subtasks.length > 0) {
                 writeTasks(task.subtasks, indentLevel + 1);

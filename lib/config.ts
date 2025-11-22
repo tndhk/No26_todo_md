@@ -205,3 +205,52 @@ export const config = new Proxy({} as AppConfig, {
         return getConfig()[prop];
     },
 });
+
+/**
+ * Checks if Supabase is properly configured with all required environment variables
+ * @returns true if all required Supabase environment variables are set
+ */
+export function isSupabaseConfigured(): boolean {
+    return !!(
+        process.env.NEXT_PUBLIC_SUPABASE_URL &&
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
+        process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
+}
+
+/**
+ * Checks if Supabase should be used for data storage
+ * @returns true if Supabase is both configured and enabled via USE_SUPABASE flag
+ */
+export function shouldUseSupabase(): boolean {
+    return isSupabaseConfigured() && process.env.USE_SUPABASE === 'true';
+}
+
+/**
+ * Gets Supabase configuration status with detailed information
+ * Useful for debugging and logging
+ * @returns Object with configuration status details
+ */
+export function getSupabaseStatus(): {
+    configured: boolean;
+    enabled: boolean;
+    shouldUse: boolean;
+    hasUrl: boolean;
+    hasAnonKey: boolean;
+    hasServiceKey: boolean;
+} {
+    const hasUrl = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const hasAnonKey = !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const hasServiceKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const configured = hasUrl && hasAnonKey && hasServiceKey;
+    const enabled = process.env.USE_SUPABASE === 'true';
+
+    return {
+        configured,
+        enabled,
+        shouldUse: configured && enabled,
+        hasUrl,
+        hasAnonKey,
+        hasServiceKey,
+    };
+}
