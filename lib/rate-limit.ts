@@ -134,8 +134,9 @@ export function getClientId(request: NextRequest): string {
     return realIp;
   }
 
-  // Fallback to connection IP
-  return request.ip || 'unknown';
+  // Fallback to a consistent identifier
+  // Note: In Next.js 16, request.ip is not available, so we use 'unknown' as fallback
+  return 'unknown';
 }
 
 /**
