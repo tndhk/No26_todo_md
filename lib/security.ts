@@ -1,6 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 import { getConfig } from './config';
+import {
+    DANGEROUS_PATTERNS,
+    FILE_LOCK_TIMEOUT_MS,
+    DEFAULT_MAX_PROJECT_TITLE_LENGTH,
+} from './constants';
 
 // File locks to prevent race conditions
 const fileLocks = new Map<string, Promise<void>>();
@@ -53,40 +58,73 @@ export function validateProjectId(projectId: string): { valid: boolean; error?: 
 }
 
 /**
+ * Helper: Validates text against dangerous patterns (XSS prevention)
+ * @param text - Text to validate
+ * @param fieldName - Name of the field (for error messages)
+ * @returns Validation result
+ */
+function validateAgainstDangerousPatterns(
+    text: string,
+    fieldName: string
+): { valid: boolean; error?: string } {
+    for (const pattern of DANGEROUS_PATTERNS) {
+        if (pattern.test(text)) {
+            return {
+                valid: false,
+                error: `${fieldName} contains potentially dangerous HTML/JavaScript code`,
+            };
+        }
+    }
+    return { valid: true };
+}
+
+/**
+ * Helper: Validates basic string requirements (type, length)
+ * @param text - Text to validate
+ * @param fieldName - Name of the field (for error messages)
+ * @param maxLength - Maximum allowed length
+ * @returns Validation result
+ */
+function validateBasicStringRequirements(
+    text: string,
+    fieldName: string,
+    maxLength: number
+): { valid: boolean; error?: string; trimmed?: string } {
+    if (!text || typeof text !== 'string') {
+        return { valid: false, error: `${fieldName} is required` };
+    }
+
+    const trimmed = text.trim();
+    if (trimmed.length === 0) {
+        return { valid: false, error: `${fieldName} cannot be empty` };
+    }
+
+    if (trimmed.length > maxLength) {
+        return {
+            valid: false,
+            error: `${fieldName} is too long (max ${maxLength} characters)`,
+        };
+    }
+
+    return { valid: true, trimmed };
+}
+
+/**
  * Validates project title
  */
 export function validateProjectTitle(title: string): { valid: boolean; error?: string } {
-    if (!title || typeof title !== 'string') {
-        return { valid: false, error: 'Project title is required' };
+    // Basic validation
+    const basicValidation = validateBasicStringRequirements(
+        title,
+        'Project title',
+        DEFAULT_MAX_PROJECT_TITLE_LENGTH
+    );
+    if (!basicValidation.valid) {
+        return basicValidation;
     }
 
-    // Trim and check length
-    const trimmed = title.trim();
-    if (trimmed.length === 0) {
-        return { valid: false, error: 'Project title cannot be empty' };
-    }
-
-    if (trimmed.length > 100) {
-        return { valid: false, error: 'Project title is too long (max 100 characters)' };
-    }
-
-    // Prevent HTML/Script tags to avoid injection attacks
-    const dangerousPatterns = [
-        /<script[^>]*>.*?<\/script>/gi,
-        /<iframe[^>]*>.*?<\/iframe>/gi,
-        /<object[^>]*>.*?<\/object>/gi,
-        /<embed[^>]*>/gi,
-        /javascript:/gi,
-        /on\w+\s*=/gi, // Event handlers like onclick=, onload=, etc.
-    ];
-
-    for (const pattern of dangerousPatterns) {
-        if (pattern.test(title)) {
-            return { valid: false, error: 'Project title contains potentially dangerous HTML/JavaScript code' };
-        }
-    }
-
-    return { valid: true };
+    // Dangerous pattern validation
+    return validateAgainstDangerousPatterns(title, 'Project title');
 }
 
 /**
@@ -95,34 +133,20 @@ export function validateProjectTitle(title: string): { valid: boolean; error?: s
 export function validateTaskContent(content: string): { valid: boolean; error?: string } {
     const config = getConfig();
 
-    if (!content || typeof content !== 'string') {
-        return { valid: false, error: 'Task content is required' };
+    // Basic validation
+    const basicValidation = validateBasicStringRequirements(
+        content,
+        'Task content',
+        config.maxContentLength
+    );
+    if (!basicValidation.valid) {
+        return basicValidation;
     }
 
-    // Trim and check length
-    const trimmed = content.trim();
-    if (trimmed.length === 0) {
-        return { valid: false, error: 'Task content cannot be empty' };
-    }
-
-    if (trimmed.length > config.maxContentLength) {
-        return { valid: false, error: `Task content is too long (max ${config.maxContentLength} characters)` };
-    }
-
-    // Prevent HTML/Script tags to avoid injection attacks
-    const dangerousPatterns = [
-        /<script[^>]*>.*?<\/script>/gi,
-        /<iframe[^>]*>.*?<\/iframe>/gi,
-        /<object[^>]*>.*?<\/object>/gi,
-        /<embed[^>]*>/gi,
-        /javascript:/gi,
-        /on\w+\s*=/gi, // Event handlers like onclick=, onload=, etc.
-    ];
-
-    for (const pattern of dangerousPatterns) {
-        if (pattern.test(content)) {
-            return { valid: false, error: 'Task content contains potentially dangerous HTML/JavaScript code' };
-        }
+    // Dangerous pattern validation
+    const dangerousValidation = validateAgainstDangerousPatterns(content, 'Task content');
+    if (!dangerousValidation.valid) {
+        return dangerousValidation;
     }
 
     // Prevent multiple #due: tags (could cause parsing issues)
@@ -219,12 +243,20 @@ export function sanitizeContent(content: string): string {
 
 /**
  * Acquires a lock for a file to prevent concurrent modifications
+ * Includes timeout to prevent deadlocks
+ * @param filePath - Path to the file to lock
+ * @returns Function to release the lock
+ * @throws {Error} If lock cannot be acquired within timeout period
  */
 export async function acquireFileLock(filePath: string): Promise<() => void> {
     const normalizedPath = path.resolve(filePath);
+    const startTime = Date.now();
 
-    // Wait for any existing lock
+    // Wait for any existing lock with timeout
     while (fileLocks.has(normalizedPath)) {
+        if (Date.now() - startTime > FILE_LOCK_TIMEOUT_MS) {
+            throw new Error(`Failed to acquire file lock for ${filePath}: timeout after ${FILE_LOCK_TIMEOUT_MS}ms`);
+        }
         await fileLocks.get(normalizedPath);
     }
 
@@ -236,15 +268,27 @@ export async function acquireFileLock(filePath: string): Promise<() => void> {
 
     fileLocks.set(normalizedPath, lockPromise);
 
+    // Auto-release lock after timeout to prevent indefinite locks
+    const timeoutId = setTimeout(() => {
+        fileLocks.delete(normalizedPath);
+        releaseLock!();
+    }, FILE_LOCK_TIMEOUT_MS);
+
     // Return a function to release the lock
     return () => {
+        clearTimeout(timeoutId);
         fileLocks.delete(normalizedPath);
         releaseLock!();
     };
 }
 
 /**
- * Executes a file operation with proper locking
+ * Executes a file operation with proper locking and error handling
+ * Ensures lock is always released, even if operation throws
+ * @param filePath - Path to the file to lock
+ * @param operation - Operation to execute while holding the lock
+ * @returns Result of the operation
+ * @throws {Error} If lock cannot be acquired or operation fails
  */
 export async function withFileLock<T>(
     filePath: string,
@@ -254,6 +298,7 @@ export async function withFileLock<T>(
     try {
         return await operation();
     } finally {
+        // Ensure lock is released in all cases (success or error)
         release();
     }
 }
