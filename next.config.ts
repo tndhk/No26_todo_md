@@ -7,11 +7,6 @@ const nextConfig: NextConfig = {
   // Exclude pino and thread-stream from bundling to avoid Turbopack issues
   serverExternalPackages: ['pino', 'thread-stream', 'pino-pretty'],
 
-  // Use system TLS certificates for Turbopack to resolve Google Fonts issues in CI
-  experimental: {
-    turbopackUseSystemTlsCerts: true,
-  },
-
   // SECURITY: Add security headers to protect against common vulnerabilities
   async headers() {
     return [
